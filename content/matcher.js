@@ -127,8 +127,8 @@
         const end = index + needle.length;
         const startsWithWord = isWordCharacter(needle[0]);
         const endsWithWord = isWordCharacter(needle[needle.length - 1]);
-        const leftIsClear = !startsWithWord || index === 0 || !isWordCharacter(source[index - 1]);
-        const rightIsClear = !endsWithWord || end === source.length || !isWordCharacter(source[end]);
+        const leftIsClear = !startsWithWord || isCustomTermBoundary(text, index);
+        const rightIsClear = !endsWithWord || isCustomTermBoundary(text, end);
         if (leftIsClear && rightIsClear) {
           matches.push({ start: index, end, type: "custom-term", priority: 0 });
         }
@@ -140,6 +140,17 @@
 
   function isWordCharacter(value) {
     return typeof value === "string" && /[\p{L}\p{N}_]/u.test(value);
+  }
+
+  function isCustomTermBoundary(text, index) {
+    if (index <= 0 || index >= text.length) return true;
+    const left = text[index - 1];
+    const right = text[index];
+    if (!isWordCharacter(left) || !isWordCharacter(right)) return true;
+    if (/[\p{Ll}\p{N}]/u.test(left) && /\p{Lu}/u.test(right)) return true;
+    return /\p{Lu}/u.test(left)
+      && /\p{Lu}/u.test(right)
+      && /\p{Ll}/u.test(text[index + 1] || "");
   }
 
   function removeOverlaps(candidates) {

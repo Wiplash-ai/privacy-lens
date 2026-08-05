@@ -42,6 +42,12 @@ test("runtime has no analytics, screenshots, remote scripts, or unscoped network
   assert.match(background, /referrerPolicy:\s*"no-referrer"/);
 });
 
+test("widget footer uses only the Wiplash producer link", async () => {
+  const source = await readFile(path.join(root, "content/content-script.js"), "utf8");
+  assert.match(source, /Produced by Wiplash\.ai/);
+  assert.doesNotMatch(source, /ON-DEVICE DEFAULT|dataFlowLabel/);
+});
+
 test("documentation explains permissions, local-first processing, restoration, regex, and opt-in images", async () => {
   const readme = await readFile(path.join(root, "README.md"), "utf8");
   const privacy = await readFile(path.join(root, "PRIVACY.md"), "utf8");

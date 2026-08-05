@@ -14,7 +14,8 @@ draggable widget:
   Top Secret stamp; small media becomes a clean black redaction.
 - Blur the whole page with distinct soft-focus and frosted treatments.
 - Redact or blur emails, phone numbers, credentials, tokens, sensitive link
-  labels, custom phrases, and bounded custom regex rules.
+  labels, custom phrases, camel-case segments in category/user names, and
+  bounded custom regex rules.
 - Replace the current, selected, or every accessible tab title with
   **Top Secret**, then restore the latest original titles.
 

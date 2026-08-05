@@ -64,6 +64,23 @@ test("matcher filters built-in types and adds literal custom terms", async () =>
   dom.window.close();
 });
 
+test("custom terms match camel-case username and category segments", async () => {
+  const dom = await createRuntime();
+  const { Matcher } = dom.window.PrivacyLens;
+  const text = "r/AgentsOfAI r/agentsofai AgentsSmith OpenAI learnAIAgents mail";
+  const matches = Matcher.collectMatches(text, {
+    enabledTypes: Object.fromEntries(Matcher.supportedTypes.map((type) => [type, false])),
+    customTerms: ["agents", "AI"]
+  });
+
+  assert.deepEqual(
+    Array.from(matches, (match) => text.slice(match.start, match.end)),
+    ["Agents", "AI", "Agents", "AI", "AI", "Agents"]
+  );
+  assert.equal(Matcher.maskText(text, matches), "r/██████Of██ r/agentsofai ██████Smith Open██ learn████████ mail");
+  dom.window.close();
+});
+
 test("matcher applies validated custom regex types and ignores unsafe rules", async () => {
   const dom = await createRuntime();
   const { Matcher } = dom.window.PrivacyLens;

@@ -242,7 +242,6 @@
         <footer class="lens-footer">
           <button id="resetButton" type="button"><img src="${assetUrl("assets/ui/reset.svg")}" alt="">Restore page</button>
           <a class="producer-link" href="https://wiplash.ai/" target="_blank" rel="noreferrer">Produced by Wiplash.ai</a>
-          <span id="dataFlowLabel">ON-DEVICE DEFAULT</span>
         </footer>
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
       </section>
@@ -436,9 +435,6 @@
     blurStrength.value = String(state.blurStrength);
     getWidgetElement("blurStrengthValue").textContent = `${state.blurStrength}px`;
     getWidgetElement("detailsSummary").textContent = `${state.blurStrength}px / ${state.textTreatment}`;
-    getWidgetElement("dataFlowLabel").textContent = state.imagesProtected && state.imageTreatment === "nsfw"
-      ? "REMOTE IMAGE CHECK"
-      : "ON-DEVICE DEFAULT";
     getWidgetElement("rememberSite").checked = rememberSite;
     getWidgetElement("matchCount").textContent = `${engineState.maskCount} masked`;
     widgetRoot.querySelectorAll("[data-treatment]").forEach((button) => {
@@ -793,14 +789,13 @@
       .switch input:focus-visible + i { outline: 2px solid var(--aqua); outline-offset: 2px; }
       .detection-row { justify-content: space-between; min-height: 31px; color: #77837c; font-size: 8px; }
       .detection-row strong { color: var(--aqua); font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-weight: 600; }
-      .lens-footer { position: relative; z-index: 1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; min-height: 39px; padding: 6px 10px; }
+      .lens-footer { position: relative; z-index: 1; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; min-height: 39px; padding: 6px 10px; }
       .lens-footer button { display: inline-flex; align-items: center; gap: 6px; min-height: 27px; padding: 0 9px; color: #b9c1bc; border: 1px solid #36443c; border-radius: 5px; background: #101713; font-size: 9px; font-weight: 740; cursor: pointer; }
       .lens-footer button:hover { color: #07100a; border-color: var(--ink); background: var(--ink); }
       .lens-footer button img { width: 12px; height: 12px; filter: invert(80%); }
       .lens-footer button:hover img { filter: none; }
-      .producer-link { color: #7e8b84; font-size: 9px; font-weight: 760; text-align: center; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+      .producer-link { justify-self: end; color: #7e8b84; font-size: 9px; font-weight: 760; text-align: right; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
       .producer-link:hover, .producer-link:focus-visible { color: var(--ink); outline: none; }
-      .lens-footer > span { color: #536159; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 7px; letter-spacing: .12em; }
       .toast { position: absolute; right: 0; bottom: calc(100% + 8px); left: 0; z-index: 4; padding: 8px 10px; color: #07100a; border: 1px solid var(--acid); border-radius: 7px; background: var(--acid); box-shadow: 0 12px 28px rgba(0,0,0,.34); font-size: 9px; font-weight: 800; text-align: center; opacity: 0; pointer-events: none; transform: translateY(5px); transition: opacity 130ms ease, transform 130ms ease; }
       .toast.is-visible { opacity: 1; transform: translateY(0); }
       /* Manila dossier theme */
@@ -875,7 +870,6 @@
       .lens-footer button img, .lens-footer button:hover img { filter: sepia(1) saturate(.8) brightness(.35); }
       .producer-link { color: #725938; }
       .producer-link:hover, .producer-link:focus-visible { color: #8f0d0d; }
-      .lens-footer > span { color: #725938; font-family: "Courier New", Courier, monospace; }
       .tab-picker { padding-bottom: 7px; }
       .tab-picker-toggle { width: 100%; min-height: 35px; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #302316; border: 0; background: transparent; text-align: left; cursor: pointer; }
       .tab-picker-toggle > span { min-width: 0; display: grid; gap: 2px; }
@@ -928,8 +922,7 @@
       .widget-tab-copy strong { font-size: 12px; }
       .widget-tab-copy small, .widget-tab-empty { font-size: 11px; }
       .lens-footer button { min-height: 36px; font-size: 13px; }
-      .producer-link { font-size: 12px; }
-      .lens-footer > span { font-size: 10px; }
+      .producer-link { font-size: 10px; }
       .toast { font-size: 13px; }
       @media (max-width: 480px), (max-height: 840px) {
         .lens { max-height: calc(100vh - 28px); overflow-x: hidden; overflow-y: auto; }

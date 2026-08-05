@@ -9,6 +9,7 @@ const fixture = `<!doctype html><html><head><title>Original private title</title
   <a id="regularLink" href="https://example.com/r/1vf0f3q_xpost_hi_im_jonathan_former_airtable_fde_nice_to/" title="About this demo">About this demo</a>
   <a id="customLink" href="https://example.com/ai" title="Read AI workflows">Explore AI workflows</a>
   <span id="roleLink" role="link" tabindex="0" aria-label="Open AI briefing">AI briefing</span>
+  <a id="camelLink" href="https://example.com/r/AgentsOfAI">r/AgentsOfAI</a>
   <pre><code id="staticCode">api_key=fixture-secret-12345</code></pre>
   <input id="email" value="form@example.com">
   <textarea id="note">Call 512-555-0111</textarea>
@@ -54,7 +55,7 @@ test("custom terms redact only exact words in link names and titles", async () =
   const engine = new dom.window.PrivacyLens.PrivacyEngine(dom.window.document, {
     redactionOptions: {
       enabledTypes: { email: false, phone: false, "api-key": false, "access-token": false, credential: false },
-      customTerms: ["AI"]
+      customTerms: ["AI", "agents"]
     }
   });
 
@@ -64,15 +65,17 @@ test("custom terms redact only exact words in link names and titles", async () =
   assert.equal(customLink.getAttribute("title"), "Read ██ workflows");
   assert.equal(dom.window.document.getElementById("roleLink").textContent, "██ briefing");
   assert.equal(dom.window.document.getElementById("roleLink").getAttribute("aria-label"), "Open ██ briefing");
+  assert.equal(dom.window.document.getElementById("camelLink").textContent, "r/██████Of██");
   assert.equal(dom.window.document.getElementById("regularLink").textContent, "About this demo");
   assert.equal(dom.window.document.getElementById("regularLink").getAttribute("title"), "About this demo");
-  assert.equal(engine.getState().maskCount, 4);
+  assert.equal(engine.getState().maskCount, 6);
 
   engine.reset();
   assert.equal(customLink.textContent, "Explore AI workflows");
   assert.equal(customLink.getAttribute("title"), "Read AI workflows");
   assert.equal(dom.window.document.getElementById("roleLink").textContent, "AI briefing");
   assert.equal(dom.window.document.getElementById("roleLink").getAttribute("aria-label"), "Open AI briefing");
+  assert.equal(dom.window.document.getElementById("camelLink").textContent, "r/AgentsOfAI");
   dom.window.close();
 });
 

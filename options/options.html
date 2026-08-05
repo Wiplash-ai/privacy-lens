@@ -78,7 +78,7 @@
         </section>
 
         <section class="setting-row custom-term-row">
-          <div><label for="customTerms">Specific words or phrases</label><p>Enter one literal term per line. Matching is case-insensitive and exact: adding “AI” hides every standalone “AI,” including inside visible link names, but leaves the rest of the sentence alone.</p></div>
+          <div><label for="customTerms">Specific words or phrases</label><p>Enter one literal term per line. Matching is case-insensitive and follows normal or camel-case boundaries: “agents” and “AI” both match inside “r/AgentsOfAI,” while lowercase substrings such as “mail” stay untouched.</p></div>
           <textarea class="text-input custom-terms" id="customTerms" rows="5" maxlength="4050" placeholder="Project Nightfall&#10;Quarterly layoffs&#10;Client codename"></textarea>
         </section>
 
