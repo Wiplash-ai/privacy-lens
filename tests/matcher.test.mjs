@@ -10,7 +10,9 @@ test("matcher finds each supported deterministic pattern", async () => {
     "+1 (512) 555-0198",
     "sk-proj-1234567890abcdefghijkl",
     "Bearer demo_access_token_1234567890",
-    "password = SignalRoom!48"
+    "password = SignalRoom!48",
+    "4111 1111 1111 1111",
+    "0x5e97870f263700f46aa00d967821199b9bc5a120"
   ].join(" / ");
   const matches = Matcher.collectMatches(text);
   const types = new Set(matches.map((match) => match.type));
@@ -20,19 +22,54 @@ test("matcher finds each supported deterministic pattern", async () => {
   assert.ok(types.has("api-key"));
   assert.ok(types.has("access-token"));
   assert.ok(types.has("credential"));
-  assert.equal(matches.length, 5);
+  assert.ok(types.has("payment-card"));
+  assert.ok(types.has("crypto"));
+  assert.equal(matches.length, 7);
+  dom.window.close();
+});
+
+test("matcher recognizes conservative crypto address, public-key, and private-key formats", async () => {
+  const dom = await createRuntime();
+  const { Matcher } = dom.window.PrivacyLens;
+  const values = [
+    `Bitcoin private key: ${"f".repeat(64)}`,
+    `Compressed public key: 02${"a".repeat(64)}`,
+    `WIF: K${"A".repeat(51)}`,
+    `Extended public key: xpub${"A".repeat(107)}`
+  ].join(" / ");
+  const matches = Matcher.collectMatches(values, { enabledTypes: { credential: false } });
+
+  assert.equal(matches.length, 4);
+  assert.deepEqual(Array.from(matches, (match) => match.type), ["crypto", "crypto", "crypto", "crypto"]);
+  assert.doesNotMatch(Matcher.maskText(values, matches), /f{32}|02a{32}|KAAAA|xpubAAAA/);
+  dom.window.close();
+});
+
+test("payment-card detection requires a plausible Luhn-valid number", async () => {
+  const dom = await createRuntime();
+  const { Matcher } = dom.window.PrivacyLens;
+  assert.equal(Matcher.collectMatches("Card 4111 1111 1111 1111").some((match) => match.type === "payment-card"), true);
+  assert.equal(Matcher.collectMatches("Reference 4111 1111 1111 1112").some((match) => match.type === "payment-card"), false);
+  assert.equal(Matcher.collectMatches("Reference 1111 1111 1111 1111").some((match) => match.type === "payment-card"), false);
   dom.window.close();
 });
 
 test("credential assignment masks only the secret value", async () => {
   const dom = await createRuntime();
   const { Matcher } = dom.window.PrivacyLens;
-  const text = "client_secret: very-private-secret";
-  const masked = Matcher.maskText(text);
-
-  assert.match(masked, /^client_secret: /);
-  assert.doesNotMatch(masked, /very-private-secret/);
-  assert.match(masked, /█{10,}/);
+  for (const text of [
+    "client_secret: very-private-secret",
+    'recording_password = "SignalRoom!48"',
+    "DATABASE-ACCESS_TOKEN=database-access-token-123"
+  ]) {
+    const matches = Matcher.collectMatches(text);
+    const masked = Matcher.maskText(text, matches);
+    assert.equal(matches.length, 1);
+    assert.equal(matches[0].type, "credential");
+    assert.match(masked, /(?:client_secret|recording_password|DATABASE-ACCESS_TOKEN)/);
+    assert.doesNotMatch(masked, /very-private-secret|SignalRoom!48|database-access-token-123/);
+    assert.match(masked, /█{10,}/);
+  }
   dom.window.close();
 });
 

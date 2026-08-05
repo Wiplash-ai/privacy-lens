@@ -14,6 +14,24 @@
   const CLASS_TEXT_BLURRED = "privacy-lens-private-text-blurred";
   const CLASS_SOFT = "privacy-lens-private-blur-soft";
   const CLASS_FROSTED = "privacy-lens-private-blur-frosted";
+  const FIELD_MASK_ATTRIBUTE = "data-privacy-lens-sensitive-field";
+  const FIELD_SELECTOR = [
+    "input",
+    "textarea",
+    "select",
+    "[contenteditable]:not([contenteditable='false'])",
+    "[role='textbox']",
+    ".CodeMirror",
+    ".cm-editor",
+    ".monaco-editor",
+    ".ace_editor",
+    "[data-slate-editor]",
+    "[data-lexical-editor]",
+    "[data-code-editor]"
+  ].join(",");
+  const IGNORED_INPUT_TYPES = new Set([
+    "button", "checkbox", "color", "file", "hidden", "image", "radio", "range", "reset", "submit"
+  ]);
   const SKIP_SELECTOR = [
     "script",
     "style",
@@ -44,11 +62,14 @@
       this.count = 0;
       this.textCount = 0;
       this.attributeCount = 0;
+      this.fieldCount = 0;
       this.observer = null;
       this.scanQueued = false;
       this.originals = new WeakMap();
       this.maskedNodes = new Set();
       this.maskedAttributes = new Map();
+      this.maskedFields = new Map();
+      this.fieldEventBound = (event) => this.handleFieldEvent(event);
       const windowValue = this.document.defaultView || root;
       this.highlightRegistry = windowValue.CSS && windowValue.CSS.highlights;
       this.HighlightClass = windowValue.Highlight || root.Highlight;
@@ -56,7 +77,8 @@
       this.matchOptions = {
         enabledTypes: options.enabledTypes || null,
         customTerms: Array.isArray(options.customTerms) ? options.customTerms : [],
-        customRegexRules: Array.isArray(options.customRegexRules) ? options.customRegexRules : []
+        customRegexRules: Array.isArray(options.customRegexRules) ? options.customRegexRules : [],
+        protectFormFields: options.protectFormFields !== false
       };
       this.treatment = options.treatment === "blur" ? "blur" : "redact";
       this.usesHighlights = Boolean(
@@ -70,7 +92,8 @@
       this.matchOptions = {
         enabledTypes: value.enabledTypes || null,
         customTerms: Array.isArray(value.customTerms) ? value.customTerms : [],
-        customRegexRules: Array.isArray(value.customRegexRules) ? value.customRegexRules : []
+        customRegexRules: Array.isArray(value.customRegexRules) ? value.customRegexRules : [],
+        protectFormFields: value.protectFormFields !== false
       };
       this.restart();
     }
@@ -115,6 +138,9 @@
     observe() {
       if (this.observer) return;
       const MutationObserverClass = (this.document.defaultView || root).MutationObserver;
+      this.document.addEventListener("beforeinput", this.fieldEventBound, true);
+      this.document.addEventListener("input", this.fieldEventBound, true);
+      this.document.addEventListener("change", this.fieldEventBound, true);
       this.observer = new MutationObserverClass((mutations) => {
         if (!this.enabled) return;
 
@@ -129,7 +155,7 @@
         childList: true,
         characterData: true,
         attributes: true,
-        attributeFilter: ["href", "title", "aria-label"],
+        attributeFilter: ["href", "title", "aria-label", "value", "type", "name", "autocomplete", "placeholder", "role", "contenteditable"],
         subtree: true
       });
     }
@@ -138,6 +164,9 @@
       if (this.observer) this.observer.disconnect();
       this.observer = null;
       this.scanQueued = false;
+      this.document.removeEventListener("beforeinput", this.fieldEventBound, true);
+      this.document.removeEventListener("input", this.fieldEventBound, true);
+      this.document.removeEventListener("change", this.fieldEventBound, true);
     }
 
     scan() {
@@ -146,6 +175,7 @@
       if (this.usesHighlights) this.applyHighlights(nodes);
       else this.applyFallback(nodes);
       this.maskLinkAttributes();
+      this.maskFormFields();
     }
 
     queueScan() {
@@ -271,6 +301,7 @@
       });
       this.recountFallback();
       this.maskLinkAttributes();
+      this.maskFormFields();
     }
 
     restoreFallbackSubtree(node) {
@@ -391,6 +422,142 @@
       if (records && !records.size) this.maskedAttributes.delete(element);
     }
 
+    handleFieldEvent(event) {
+      if (!this.enabled || !this.matchOptions.protectFormFields) return;
+      const target = event.target;
+      if (!target || target.nodeType !== 1) return;
+      const field = target.matches(FIELD_SELECTOR) ? target : target.closest(FIELD_SELECTOR);
+      if (!field || !this.isEligibleFormField(field)) return;
+      const value = event.type === "beforeinput" ? this.predictFieldValue(field, event) : undefined;
+      this.updateFieldMask(field, value);
+      this.recountFields();
+    }
+
+    predictFieldValue(field, event) {
+      const current = this.getFieldValue(field);
+      if (!event || typeof event.data !== "string" || event.inputType?.startsWith("delete")) return current;
+      if (typeof field.selectionStart === "number" && typeof field.selectionEnd === "number") {
+        return `${current.slice(0, field.selectionStart)}${event.data}${current.slice(field.selectionEnd)}`;
+      }
+      return `${current}${event.data}`;
+    }
+
+    maskFormFields() {
+      if (!this.matchOptions.protectFormFields) {
+        this.clearMaskedFields();
+        return;
+      }
+
+      const seen = new Set();
+      let count = 0;
+      this.document.querySelectorAll(FIELD_SELECTOR).forEach((field) => {
+        if (!this.isEligibleFormField(field)) return;
+        seen.add(field);
+        count += this.updateFieldMask(field);
+      });
+
+      this.maskedFields.forEach((record, field) => {
+        if (seen.has(field)) return;
+        this.restoreMaskedField(field, record);
+      });
+      this.setFieldCount(count);
+    }
+
+    updateFieldMask(field, value = this.getFieldValue(field)) {
+      const matches = this.collectFieldMatches(field, value);
+      const existing = this.maskedFields.get(field);
+      if (!matches.length) {
+        if (existing) this.restoreMaskedField(field, existing);
+        return 0;
+      }
+
+      const record = existing || {
+        hadAttribute: field.hasAttribute(FIELD_MASK_ATTRIBUTE),
+        attributeValue: field.getAttribute(FIELD_MASK_ATTRIBUTE),
+        count: 0
+      };
+      record.count = matches.length;
+      this.maskedFields.set(field, record);
+      if (field.getAttribute(FIELD_MASK_ATTRIBUTE) !== "true") {
+        field.setAttribute(FIELD_MASK_ATTRIBUTE, "true");
+      }
+      return record.count;
+    }
+
+    collectFieldMatches(field, value) {
+      const source = typeof value === "string" ? value : String(value || "");
+      if (!source.trim()) return [];
+      const matches = this.matcher.collectMatches(source, this.matchOptions);
+      if (matches.length) return matches;
+
+      const descriptor = [
+        field.tagName,
+        field.getAttribute("type"),
+        field.getAttribute("name"),
+        field.id,
+        field.getAttribute("autocomplete"),
+        field.getAttribute("aria-label"),
+        field.getAttribute("placeholder"),
+        field.labels ? [...field.labels].map((label) => label.textContent || "").join(" ") : "",
+        field.closest("label")?.textContent || ""
+      ].filter(Boolean).join(" ").toLocaleLowerCase();
+      const typeEnabled = (type) => this.matchOptions.enabledTypes?.[type] !== false;
+      let type = "";
+
+      if (typeEnabled("credential") && /(?:password|passcode|passphrase|current-password|new-password|one-time-code|\bpin\b)/.test(descriptor)) {
+        type = "credential";
+      } else if (typeEnabled("payment-card") && /\bcc-(?:name|given-name|additional-name|family-name|number|exp|exp-month|exp-year|csc|type)\b|(?:credit|debit|payment)[ _-]*card|card[ _-]*(?:number|name|expiry|expiration|cvc|cvv)|\b(?:cvc|cvv|card security code)\b/.test(descriptor)) {
+        type = "payment-card";
+      } else if (typeEnabled("phone") && /(?:telephone|phone|mobile|\btel\b)/.test(descriptor)) {
+        type = "phone";
+      } else if (typeEnabled("email") && /(?:email|e-mail)/.test(descriptor)) {
+        type = "email";
+      } else if (typeEnabled("crypto") && /(?:bitcoin|ethereum|solana|crypto|wallet|public[ _-]*key|private[ _-]*key|seed[ _-]*phrase|mnemonic|\bbtc\b|\beth\b)/.test(descriptor)) {
+        type = "crypto";
+      }
+
+      if (!type) return [];
+      const start = source.search(/\S/);
+      const end = source.search(/\s*$/);
+      return start >= 0 && end > start ? [{ start, end, type, priority: 0 }] : [];
+    }
+
+    getFieldValue(field) {
+      if (field && typeof field.value === "string") return field.value;
+      return field?.textContent || "";
+    }
+
+    isEligibleFormField(field) {
+      if (!field || !field.isConnected || field.closest("[data-privacy-lens-owned='true']")) return false;
+      if (field.closest("[aria-hidden='true']") || field.hidden) return false;
+      if (field.tagName === "INPUT" && IGNORED_INPUT_TYPES.has((field.getAttribute("type") || "text").toLocaleLowerCase())) return false;
+      return true;
+    }
+
+    recountFields() {
+      let count = 0;
+      this.maskedFields.forEach((record, field) => {
+        if (!field.isConnected || !this.isEligibleFormField(field)) {
+          this.restoreMaskedField(field, record);
+          return;
+        }
+        count += record.count;
+      });
+      this.setFieldCount(count);
+    }
+
+    restoreMaskedField(field, record) {
+      if (record.hadAttribute) field.setAttribute(FIELD_MASK_ATTRIBUTE, record.attributeValue || "");
+      else field.removeAttribute(FIELD_MASK_ATTRIBUTE);
+      this.maskedFields.delete(field);
+    }
+
+    clearMaskedFields() {
+      this.maskedFields.forEach((record, field) => this.restoreMaskedField(field, record));
+      this.maskedFields.clear();
+      this.setFieldCount(0);
+    }
+
     clear() {
       if (this.usesHighlights) {
         if (this.previousHighlight) this.highlightRegistry.set(MASK_NAME, this.previousHighlight);
@@ -410,6 +577,7 @@
         });
       });
       this.maskedAttributes.clear();
+      this.clearMaskedFields();
       this.setTextCount(0);
       this.setAttributeCount(0);
     }
@@ -424,8 +592,13 @@
       this.syncCount();
     }
 
+    setFieldCount(value) {
+      this.fieldCount = Number.isFinite(value) ? value : 0;
+      this.syncCount();
+    }
+
     syncCount() {
-      const count = this.textCount + this.attributeCount;
+      const count = this.textCount + this.attributeCount + this.fieldCount;
       if (count === this.count) return;
       this.count = count;
       this.onCountChange(count);
@@ -676,6 +849,43 @@
           background-color: transparent;
           text-shadow: 0 0 5px rgba(12, 9, 5, .96);
           -webkit-text-fill-color: transparent;
+        }
+        html.${CLASS_TEXT_REDACTED} [${FIELD_MASK_ATTRIBUTE}="true"] {
+          color: transparent !important;
+          caret-color: transparent !important;
+          text-shadow: none !important;
+          text-decoration-color: transparent !important;
+          -webkit-text-fill-color: transparent !important;
+          background-color: #090806 !important;
+          background-image: linear-gradient(#090806, #090806) !important;
+          box-shadow: inset 0 0 0 1000px #090806 !important;
+        }
+        html.${CLASS_TEXT_REDACTED} [${FIELD_MASK_ATTRIBUTE}="true"] *,
+        html.${CLASS_TEXT_REDACTED} [${FIELD_MASK_ATTRIBUTE}="true"]::placeholder {
+          color: transparent !important;
+          caret-color: transparent !important;
+          text-shadow: none !important;
+          -webkit-text-fill-color: transparent !important;
+        }
+        html.${CLASS_TEXT_BLURRED} [${FIELD_MASK_ATTRIBUTE}="true"],
+        html.${CLASS_TEXT_BLURRED} [${FIELD_MASK_ATTRIBUTE}="true"] * {
+          color: transparent !important;
+          caret-color: transparent !important;
+          text-shadow: 0 0 6px rgba(12, 9, 5, .98) !important;
+          text-decoration-color: transparent !important;
+          -webkit-text-fill-color: transparent !important;
+        }
+        html.${CLASS_TEXT_BLURRED} [${FIELD_MASK_ATTRIBUTE}="true"]::placeholder {
+          color: transparent !important;
+          -webkit-text-fill-color: transparent !important;
+        }
+        html.${CLASS_TEXT_REDACTED} [${FIELD_MASK_ATTRIBUTE}="true"]::selection,
+        html.${CLASS_TEXT_BLURRED} [${FIELD_MASK_ATTRIBUTE}="true"]::selection,
+        html.${CLASS_TEXT_REDACTED} [${FIELD_MASK_ATTRIBUTE}="true"] *::selection,
+        html.${CLASS_TEXT_BLURRED} [${FIELD_MASK_ATTRIBUTE}="true"] *::selection {
+          color: transparent !important;
+          background: #090806 !important;
+          -webkit-text-fill-color: transparent !important;
         }
         html.${CLASS_IMAGES_HIDDEN} body img,
         html.${CLASS_IMAGES_HIDDEN} body picture,

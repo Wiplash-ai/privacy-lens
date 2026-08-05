@@ -12,9 +12,10 @@ draggable widget:
 
 - Blur or hide images and video, with one shared blur-strength control.
 - Blur the whole page with distinct soft-focus and frosted treatments.
-- Redact or blur emails, phone numbers, credentials, tokens, sensitive link
-  labels, custom phrases, camel-case segments in category/user names, and
-  bounded custom regex rules.
+- Redact or blur emails, phone numbers, payment cards, credentials, tokens,
+  Bitcoin and cryptocurrency addresses/keys, sensitive link labels, custom
+  phrases, camel-case segments in category/user names, and bounded custom
+  regex rules.
 - Replace the current, selected, or every accessible tab title with
   **Top Secret**, then restore the latest original titles.
 
@@ -22,6 +23,13 @@ Everything above runs inside the browser. There is no account, analytics,
 advertising, remote script, or screenshot capture. Settings and optional site
 rules stay in extension storage, and one restore action removes every page
 effect.
+
+Matching form fields are visually concealed by default while Secrets is on.
+Privacy Lens never replaces the field's real value: typing, validation,
+autofill, copying, and form submission continue to use the page's original
+data. Email, telephone, password, payment-card, and crypto-labeled fields mask
+from the first entered character; generic fields mask as soon as a configured
+rule matches. This behavior can be disabled in Settings.
 
 ## Optional image screening
 
@@ -73,9 +81,9 @@ unit, release-invariant, packaging, and real-browser integration checks.
 
 The browser integration uses a deterministic test fixture and classifier stub.
 It covers all four widget controls, three image treatments, both text
-treatments, linked-label redaction, dynamic DOM updates, custom phrases and
-regex rules, tab selection, all-tab title protection, restoration, and
-desktop/mobile bounds.
+treatments, linked-label and non-destructive form-field redaction, payment-card
+and crypto rules, dynamic DOM updates, custom phrases and regex rules, tab
+selection, all-tab title protection, restoration, and desktop/mobile bounds.
 
 ## Load unpacked
 

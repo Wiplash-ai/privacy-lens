@@ -11,15 +11,20 @@ const fixture = `<!doctype html><html><head><title>Original private title</title
   <span id="roleLink" role="link" tabindex="0" aria-label="Open AI briefing">AI briefing</span>
   <a id="camelLink" href="https://example.com/r/AgentsOfAI">r/AgentsOfAI</a>
   <pre><code id="staticCode">api_key=fixture-secret-12345</code></pre>
-  <input id="email" value="form@example.com">
+  <input id="email" type="email" value="form@example.com">
+  <input id="phone" type="tel" value="+1 512-555-0188">
+  <input id="password" type="password" value="FixtureOnly!48">
   <textarea id="note">Call 512-555-0111</textarea>
   <div id="editable" contenteditable="true">password=editable-secret</div>
   <div id="editor" class="monaco-editor">secret=editor-secret</div>
+  <input id="card" name="cardNumber" autocomplete="cc-number" value="4111 1111 1111 1111">
+  <input id="wallet" aria-label="Bitcoin private key" value="K${"A".repeat(51)}">
+  <input id="ordinary" value="Search the archive">
   <img id="photo" src="fixture.png" alt="Fixture">
   <video id="video"></video>
 </body></html>`;
 
-test("masking is reversible and excludes controls and code editors", async () => {
+test("masking is reversible and visually protects sensitive form fields without changing their values", async () => {
   const dom = await createRuntime(fixture);
   const engine = new dom.window.PrivacyLens.PrivacyEngine(dom.window.document, { isTopFrame: true });
   engine.applyState({ sensitiveMasked: true });
@@ -35,10 +40,19 @@ test("masking is reversible and excludes controls and code editors", async () =>
   assert.doesNotMatch(dom.window.document.getElementById("secretLink").getAttribute("title"), /linked@example\.com/);
   assert.doesNotMatch(dom.window.document.getElementById("aliasLink").getAttribute("aria-label"), /Account manager/);
   assert.equal(dom.window.document.getElementById("email").value, "form@example.com");
+  assert.equal(dom.window.document.getElementById("phone").value, "+1 512-555-0188");
+  assert.equal(dom.window.document.getElementById("password").value, "FixtureOnly!48");
   assert.match(dom.window.document.getElementById("note").value, /512-555-0111/);
   assert.match(dom.window.document.getElementById("editable").textContent, /editable-secret/);
   assert.match(dom.window.document.getElementById("editor").textContent, /editor-secret/);
-  assert.equal(engine.getState().maskCount, 7);
+  assert.equal(dom.window.document.getElementById("card").value, "4111 1111 1111 1111");
+  assert.match(dom.window.document.getElementById("wallet").value, /^K/);
+  ["email", "phone", "password", "note", "editable", "editor", "card", "wallet"].forEach((id) => {
+    assert.equal(dom.window.document.getElementById(id).dataset.privacyLensSensitiveField, "true");
+  });
+  assert.equal(dom.window.document.getElementById("ordinary").hasAttribute("data-privacy-lens-sensitive-field"), false);
+  assert.match(engine.styleElement.textContent, /data-privacy-lens-sensitive-field/);
+  assert.equal(engine.getState().maskCount, 15);
 
   engine.reset();
   assert.match(dom.window.document.getElementById("copy").textContent, /guest@example\.com/);
@@ -47,6 +61,35 @@ test("masking is reversible and excludes controls and code editors", async () =>
   assert.equal(dom.window.document.getElementById("aliasLink").textContent, "Account manager");
   assert.equal(dom.window.document.getElementById("secretLink").getAttribute("title"), "Email linked@example.com");
   assert.equal(dom.window.document.getElementById("aliasLink").getAttribute("aria-label"), "Account manager");
+  ["email", "phone", "password", "note", "editable", "editor", "card", "wallet"].forEach((id) => {
+    assert.equal(dom.window.document.getElementById(id).hasAttribute("data-privacy-lens-sensitive-field"), false);
+  });
+  dom.window.close();
+});
+
+test("semantic form fields conceal from the first typed character and can be disabled globally", async () => {
+  const dom = await createRuntime(fixture);
+  const document = dom.window.document;
+  const engine = new dom.window.PrivacyLens.PrivacyEngine(document);
+  const semanticFields = ["email", "phone", "password", "card", "wallet"]
+    .map((id) => document.getElementById(id));
+  semanticFields.forEach((field) => { field.value = ""; });
+  engine.applyState({ sensitiveMasked: true });
+  semanticFields.forEach((field) => {
+    assert.equal(field.hasAttribute("data-privacy-lens-sensitive-field"), false);
+    field.dispatchEvent(new dom.window.InputEvent("beforeinput", {
+      bubbles: true,
+      data: "a",
+      inputType: "insertText"
+    }));
+    assert.equal(field.dataset.privacyLensSensitiveField, "true");
+    assert.equal(field.value, "");
+  });
+
+  engine.setRedactionOptions({ protectFormFields: false });
+  assert.equal(document.getElementById("email").hasAttribute("data-privacy-lens-sensitive-field"), false);
+  assert.equal(document.getElementById("card").hasAttribute("data-privacy-lens-sensitive-field"), false);
+  engine.reset();
   dom.window.close();
 });
 
@@ -54,7 +97,7 @@ test("custom terms redact only exact words in link names and titles", async () =
   const dom = await createRuntime(fixture);
   const engine = new dom.window.PrivacyLens.PrivacyEngine(dom.window.document, {
     redactionOptions: {
-      enabledTypes: { email: false, phone: false, "api-key": false, "access-token": false, credential: false },
+      enabledTypes: { email: false, phone: false, "payment-card": false, crypto: false, "api-key": false, "access-token": false, credential: false },
       customTerms: ["AI", "agents"]
     }
   });

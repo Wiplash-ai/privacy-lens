@@ -132,6 +132,41 @@ try {
     neutralTitle: "Top Secret"
   });
   assert.ok(redactionOnlyResponse.maskCount >= 9);
+  const protectedFields = await page.locator("#producerEmail, #producerPhone, #recordingPassword, #privateNote, #paymentCard, #bitcoinKey, .monaco-editor").evaluateAll((fields) => fields.map((field) => ({
+    id: field.id || "editor",
+    masked: field.getAttribute("data-privacy-lens-sensitive-field"),
+    value: typeof field.value === "string" ? field.value : field.textContent,
+    background: getComputedStyle(field).backgroundColor,
+    fill: getComputedStyle(field).webkitTextFillColor
+  })));
+  assert.equal(protectedFields.every((field) => field.masked === "true"), true, "Sensitive form and editor values should receive a visual mask");
+  assert.equal(protectedFields.every((field) => field.background === "rgb(9, 8, 6)"), true, "Redacted fields should render as opaque black bars");
+  assert.match(protectedFields.find((field) => field.id === "producerEmail").value, /producer\.private@example\.com/);
+  assert.match(protectedFields.find((field) => field.id === "producerPhone").value, /512-555-0188/);
+  assert.equal(protectedFields.find((field) => field.id === "recordingPassword").value, "FixtureOnly!48");
+  assert.match(protectedFields.find((field) => field.id === "paymentCard").value, /4111 1111 1111 1111/);
+  assert.match(protectedFields.find((field) => field.id === "bitcoinKey").value, /^K/);
+  const recordingPasswordMasked = await page.locator("pre code").evaluate((code) => {
+    const highlight = globalThis.CSS?.highlights?.get("privacy-lens-sensitive");
+    if (highlight) {
+      return [...highlight].some((range) => code.contains(range.startContainer) && range.toString() === "FixtureOnly!48");
+    }
+    return !/FixtureOnly!48/.test(code.textContent || "");
+  });
+  assert.equal(recordingPasswordMasked, true, "Prefixed recording_password assignments should conceal only their value");
+  for (const { selector, firstCharacter, restoredValue } of [
+    { selector: "#producerPhone", firstCharacter: "5", restoredValue: "+1 512-555-0188" },
+    { selector: "#recordingPassword", firstCharacter: "s", restoredValue: "FixtureOnly!48" }
+  ]) {
+    const field = page.locator(selector);
+    await field.fill("");
+    await page.waitForFunction((fieldSelector) => !document.querySelector(fieldSelector)?.hasAttribute("data-privacy-lens-sensitive-field"), selector);
+    await field.pressSequentially(firstCharacter);
+    await page.waitForFunction((fieldSelector) => document.querySelector(fieldSelector)?.getAttribute("data-privacy-lens-sensitive-field") === "true", selector);
+    assert.equal(await field.inputValue(), firstCharacter, `${selector} should keep the first typed character while concealing it visually`);
+    await field.fill(restoredValue);
+    await page.waitForFunction((fieldSelector) => document.querySelector(fieldSelector)?.getAttribute("data-privacy-lens-sensitive-field") === "true", selector);
+  }
   const linkedSecretState = await page.locator("#linkedSecret").evaluate((link) => {
     const highlight = globalThis.CSS?.highlights?.get("privacy-lens-sensitive");
     const highlighted = highlight
@@ -154,6 +189,7 @@ try {
   assert.equal(hiddenWidget.visible, false);
   await host.waitFor({ state: "hidden" });
   await page.locator(".sensitive-copy").screenshot({ path: path.join(screenshotRoot, "document-redaction.png") });
+  await page.locator("#producerEmail").locator("..").screenshot({ path: path.join(screenshotRoot, "form-field-redaction.png") });
   await sendToTopFrame(worker, tabId, { type: "PRIVACY_LENS_SHOW_WIDGET" });
   await sendToTopFrame(worker, tabId, { type: "PRIVACY_LENS_SET_WIDGET_EXPANDED", expanded: true });
 
@@ -197,7 +233,11 @@ try {
   assert.equal(await page.locator("html").evaluate((element) => element.classList.contains("privacy-lens-private-text-redacted")), true);
   assert.match(await page.locator("#sensitiveStill").evaluate((element) => getComputedStyle(element).filter), /blur\(11px\)/);
   assert.equal(await page.locator("#producerEmail").inputValue(), "producer.private@example.com");
+  assert.match(await page.locator("#producerPhone").inputValue(), /512-555-0188/);
+  assert.equal(await page.locator("#recordingPassword").inputValue(), "FixtureOnly!48");
   assert.match(await page.locator("#privateNote").inputValue(), /512-555-0122/);
+  assert.equal(await page.locator("#paymentCard").inputValue(), "4111 1111 1111 1111");
+  assert.match(await page.locator("#bitcoinKey").inputValue(), /^K/);
   assert.match(await page.locator(".monaco-editor").textContent(), /keep-editor-values-untouched/);
 
   const firstMaskCount = response.maskCount;
@@ -228,6 +268,10 @@ try {
   await page.waitForFunction(() => document.title === "Night Signal — Updated Private Rundown");
   assert.equal(await page.locator("html").evaluate((element) => [...element.classList].some((name) => name.startsWith("privacy-lens-private-"))), false);
   assert.notEqual(await page.locator(".hero-art img").evaluate((element) => getComputedStyle(element).visibility), "hidden");
+  assert.equal(await page.locator("#producerEmail").getAttribute("data-privacy-lens-sensitive-field"), null);
+  assert.equal(await page.locator("#producerPhone").getAttribute("data-privacy-lens-sensitive-field"), null);
+  assert.equal(await page.locator("#recordingPassword").getAttribute("data-privacy-lens-sensitive-field"), null);
+  assert.equal(await page.locator("#paymentCard").getAttribute("data-privacy-lens-sensitive-field"), null);
   assert.equal(await page.locator("#producerEmail").inputValue(), "producer.private@example.com");
 
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -282,6 +326,9 @@ try {
   assert.equal(await optionsPage.getByText("No network connection").count(), 0);
   assert.equal(await optionsPage.locator("input[name='defaultImageTreatment'][value='blur']").isChecked(), true);
   assert.equal(await optionsPage.locator("input[name='defaultTextTreatment'][value='redact']").isChecked(), true);
+  assert.equal(await optionsPage.locator("#protectFormFields").isChecked(), true);
+  assert.equal(await optionsPage.locator("[data-redaction-type='payment-card']").isChecked(), true);
+  assert.equal(await optionsPage.locator("[data-redaction-type='crypto']").isChecked(), true);
   assert.equal(await optionsPage.locator("#neutralTitle").inputValue(), "Top Secret");
   assert.match(await optionsPage.locator("#customTerms").inputValue(), /Project Nightfall/);
   assert.equal(await optionsPage.locator("#nsfwFilterEnabled").isChecked(), true);
@@ -320,7 +367,7 @@ try {
   });
   await secondPage.close();
 
-  console.log("Verified real MV3 runtime: distinct blur treatments, media blur/hidden/opt-in NSFW API, linked document redaction/blur, stable phrase editing, custom regex, widget tab dropdown, selected/all-tab titles, title restoration, dynamic DOM, form/editor exclusions, desktop, and mobile layout.");
+  console.log("Verified real MV3 runtime: distinct blur treatments, media blur/hidden/opt-in NSFW API, linked document and non-destructive form-field redaction/blur, payment-card and crypto detection, stable phrase editing, custom regex, widget tab dropdown, selected/all-tab titles, title restoration, dynamic DOM, desktop, and mobile layout.");
   console.log(`Review screenshots: ${path.relative(root, screenshotRoot)}/`);
 } finally {
   await context.close();

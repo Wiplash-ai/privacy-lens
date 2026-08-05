@@ -30,8 +30,18 @@
       <section>
         <pre><code>STREAM_API_KEY=sk-proj-1234567890abcdefghijkl
 recording_password = "FixtureOnly!48"</code></pre>
+        <label for="producerEmail">Producer email</label>
         <input id="producerEmail" type="email" value="producer.private@example.com">
+        <label for="producerPhone">Producer phone</label>
+        <input id="producerPhone" type="tel" autocomplete="tel" value="+1 512-555-0188">
+        <label for="recordingPassword">Recording password</label>
+        <input id="recordingPassword" type="password" autocomplete="current-password" value="FixtureOnly!48">
+        <label for="privateNote">Editable cue note</label>
         <textarea id="privateNote">Call +1 512-555-0122 if the feed drops.</textarea>
+        <label for="paymentCard">Payment card</label>
+        <input id="paymentCard" name="cardNumber" autocomplete="cc-number" value="4111 1111 1111 1111">
+        <label for="bitcoinKey">Bitcoin private key</label>
+        <input id="bitcoinKey" aria-label="Bitcoin private key" value="KAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA">
         <div class="monaco-editor" contenteditable="true" role="textbox">password = keep-editor-values-untouched</div>
       </section>
 

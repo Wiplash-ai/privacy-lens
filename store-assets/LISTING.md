@@ -11,17 +11,19 @@ Privacy Lens adds a compact, draggable privacy controller to ordinary webpages.
 Use it before a screen share, recording, public presentation, or shoulder-surf
 risk to blur or hide images/video, apply adjustable page blur, replace
 revealing selected or all tab titles with “Top Secret,” and conceal emails,
-phone numbers, API/access tokens, credential values, or chosen literal terms.
+phone numbers, payment cards, Bitcoin/crypto addresses and keys, API/access
+tokens, credential values, or chosen literal terms.
 
 Sensitive text can use a government-document-style black redaction or a blur.
 Built-in categories are individually selectable, custom words stay literal,
 and advanced users can add bounded custom regex secret types. The same session
 tab picker is available from both the page widget and settings.
 
-Every control is reversible. Dynamic page content is handled automatically,
-while form values, editable controls, scripts, styles, and recognized code
-editors are left alone. Preferences, custom rules, and opt-in
-remembered-site rules stay in local browser storage.
+Every control is reversible. Dynamic page content is handled automatically.
+Matching inputs and editable controls are visually concealed without changing
+what the page stores, validates, copies, or submits. Form-field protection is
+on by default and can be disabled in Settings. Preferences, custom rules, and
+opt-in remembered-site rules stay in local browser storage.
 
 Optional NSFW screening is disabled by default. If enabled, the extension
 compresses page images to at most 512 px and sends only those image bytes to the

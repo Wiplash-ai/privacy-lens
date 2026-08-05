@@ -63,6 +63,7 @@ async function save(options = {}) {
     defaultBlurTreatment: form.elements.defaultBlurTreatment.value,
     defaultImageTreatment: form.elements.defaultImageTreatment.value,
     defaultTextTreatment: form.elements.defaultTextTreatment.value,
+    protectFormFields: document.getElementById("protectFormFields").checked,
     redactionTypes: Object.fromEntries([...form.querySelectorAll("[data-redaction-type]")]
       .map((input) => [input.dataset.redactionType, input.checked])),
     customTerms: customTerms.value.split("\n"),
@@ -107,6 +108,7 @@ function render() {
   form.elements.defaultBlurTreatment.value = settings.defaultBlurTreatment;
   form.elements.defaultImageTreatment.value = settings.defaultImageTreatment;
   form.elements.defaultTextTreatment.value = settings.defaultTextTreatment;
+  document.getElementById("protectFormFields").checked = settings.protectFormFields;
   form.querySelectorAll("[data-redaction-type]").forEach((input) => {
     input.checked = settings.redactionTypes[input.dataset.redactionType] !== false;
   });

@@ -7,16 +7,22 @@ controls, and settings work inside the browser. The extension does not send
 page text, browsing history, source page URLs, tab titles, custom terms, custom
 regex rules, settings, analytics, crash reports, or usage events to Wiplash AI.
 
-The extension reads rendered page text and page elements only to apply the
-privacy controls the user requests. When the user opens tab-title controls, it
-reads open tab titles and URLs locally so the user can choose which ordinary
-webpage tabs to protect. Form values, editable controls, scripts, styles, and
-recognized code editors are excluded from sensitive-text masking.
+The extension reads rendered page text, form values, and page elements only to
+apply the privacy controls the user requests. When Secrets and form-field
+protection are enabled, it checks input and editable-field values locally and
+adds a reversible visual mask to matching fields. It does not replace, submit,
+store, or transmit those values. Scripts and styles remain excluded from text
+matching. When the user opens tab-title controls, Privacy Lens reads open tab
+titles and URLs locally so the user can choose which ordinary webpage tabs to
+protect.
 
 If the user adds custom terms, custom regex secret types, or disables built-in
 detection categories, those preferences are stored locally and supplied only
-to the on-page matcher. Regex patterns are length- and count-limited, and
-unsafe constructs are rejected. They are never uploaded or used for training.
+to the on-page matcher. Built-in payment-card rules require a Luhn-valid number,
+while conservative Bitcoin and cryptocurrency rules recognize common address,
+public-key, and private-key encodings. Regex patterns are length- and
+count-limited, and unsafe constructs are rejected. They are never uploaded or
+used for training.
 
 ## Optional NSFW image screening
 

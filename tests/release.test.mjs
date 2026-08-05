@@ -51,6 +51,11 @@ test("widget keeps only producer credit while Settings links to Labs and source"
   assert.match(options, /https:\/\/github\.com\/Wiplash-ai\/privacy-lens/);
 });
 
+test("advanced regex settings appear before literal words and phrases", async () => {
+  const options = await readFile(path.join(root, "options/options.html"), "utf8");
+  assert.ok(options.indexOf("regex-rule-row") < options.indexOf("custom-term-row"));
+});
+
 test("documentation explains permissions, local-first processing, restoration, regex, and opt-in images", async () => {
   const readme = await readFile(path.join(root, "README.md"), "utf8");
   const privacy = await readFile(path.join(root, "PRIVACY.md"), "utf8");
@@ -59,8 +64,12 @@ test("documentation explains permissions, local-first processing, restoration, r
   assert.match(readme, /disabled by default/i);
   assert.match(readme, /compressed image/i);
   assert.match(readme, /custom\s+regex/i);
+  assert.match(readme, /form field/i);
+  assert.match(readme, /payment cards/i);
+  assert.match(readme, /cryptocurrency/i);
   assert.match(readme, /restore/i);
   assert.match(privacy, /page text/i);
+  assert.match(privacy, /does not replace/i);
   assert.match(privacy, /optional NSFW/i);
   assert.match(listing, /Permission justification/);
   assert.match(listing, /optional/i);

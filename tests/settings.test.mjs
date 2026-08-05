@@ -21,8 +21,11 @@ test("settings storage persists sanitized local preferences and site rules", asy
   assert.equal(defaults.defaultBlurTreatment, "soft");
   assert.equal(defaults.defaultImageTreatment, "blur");
   assert.equal(defaults.defaultTextTreatment, "redact");
+  assert.equal(defaults.protectFormFields, true);
   assert.equal(defaults.neutralTitle, "Top Secret");
   assert.equal(defaults.redactionTypes.email, true);
+  assert.equal(defaults.redactionTypes["payment-card"], true);
+  assert.equal(defaults.redactionTypes.crypto, true);
   assert.equal(defaults.nsfwFilterEnabled, false);
   assert.equal(defaults.nsfwApiUrl, Settings.DEFAULT_NSFW_API_URL);
 
@@ -31,6 +34,7 @@ test("settings storage persists sanitized local preferences and site rules", asy
     defaultBlurTreatment: "frosted",
     defaultImageTreatment: "hidden",
     defaultTextTreatment: "blur",
+    protectFormFields: false,
     redactionTypes: { phone: false },
     customTerms: ["Project Nightfall", " project nightfall ", "Board minutes"],
     customRegexRules: [
@@ -53,6 +57,7 @@ test("settings storage persists sanitized local preferences and site rules", asy
   assert.equal(saved.widgetSide, "left");
   assert.equal(saved.defaultImageTreatment, "hidden");
   assert.equal(saved.defaultTextTreatment, "blur");
+  assert.equal(saved.protectFormFields, false);
   assert.equal(saved.redactionTypes.phone, false);
   assert.equal(saved.redactionTypes.email, true);
   assert.deepEqual(Array.from(saved.customTerms), ["Project Nightfall", "Board minutes"]);

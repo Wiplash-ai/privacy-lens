@@ -8,8 +8,19 @@
     Object.freeze({
       type: "credential",
       priority: 1,
-      expression: /\b(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|private[_-]?key)\b\s*[:=]\s*["']?([^\s"'`,;<>]{6,})/gi,
+      expression: /\b(?:(?:[a-z][a-z0-9]*[_-])+)?(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|private[_-]?key)\b\s*[:=]\s*["']?([^\s"'`,;<>]{6,})/gi,
       valueGroup: 1
+    }),
+    Object.freeze({
+      type: "crypto",
+      priority: 2,
+      expression: /\b(?:(?:bitcoin|btc|ethereum|eth|solana|crypto|wallet)[ _-]?)?(?:address|public[ _-]?key|private[ _-]?key|wallet[ _-]?key)\b\s*[:=]\s*["']?((?:0x)?[A-Fa-f0-9]{40,130}|[1-9A-HJ-NP-Za-km-z]{25,120})/gi,
+      valueGroup: 1
+    }),
+    Object.freeze({
+      type: "crypto",
+      priority: 2,
+      expression: /\b(?:bc1[ac-hj-np-z02-9]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,34}|(?:xpub|xprv|tpub|tprv)[1-9A-HJ-NP-Za-km-z]{107}|[5KL][1-9A-HJ-NP-Za-km-z]{50,51}|0x[A-Fa-f0-9]{40}|(?:02|03)[A-Fa-f0-9]{64}|04[A-Fa-f0-9]{128})\b/g
     }),
     Object.freeze({
       type: "api-key",
@@ -28,13 +39,19 @@
       expression: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g
     }),
     Object.freeze({
-      type: "email",
+      type: "payment-card",
       priority: 5,
+      expression: /\b\d(?:[ -]?\d){12,18}\b/g,
+      validate: isValidPaymentCard
+    }),
+    Object.freeze({
+      type: "email",
+      priority: 6,
       expression: /\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+\b/gi
     }),
     Object.freeze({
       type: "phone",
-      priority: 6,
+      priority: 7,
       expression: /(?:\+\d{1,3}[ .-]?)?(?:\(\d{2,4}\)|\d{2,4})[ .-]\d{3,4}[ .-]\d{4}\b/g
     })
   ]);
@@ -59,7 +76,7 @@
         const start = match.index + Math.max(0, relativeOffset);
         const end = start + captured.length;
 
-        if (captured && end > start) {
+        if (captured && end > start && (!rule.validate || rule.validate(captured))) {
           candidates.push({ start, end, type: rule.type, priority: rule.priority });
         }
 
@@ -171,6 +188,23 @@
     return selected.sort((left, right) => left.start - right.start);
   }
 
+  function isValidPaymentCard(value) {
+    const digits = String(value || "").replace(/[^0-9]/g, "");
+    if (digits.length < 13 || digits.length > 19 || /^(\d)\1+$/.test(digits)) return false;
+    let sum = 0;
+    let doubleDigit = false;
+    for (let index = digits.length - 1; index >= 0; index -= 1) {
+      let digit = Number(digits[index]);
+      if (doubleDigit) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      doubleDigit = !doubleDigit;
+    }
+    return sum % 10 === 0;
+  }
+
   function maskText(value, matches = collectMatches(value), treatment = "redact") {
     const text = typeof value === "string" ? value : String(value || "");
     if (!matches.length) return text;
@@ -189,6 +223,6 @@
   root.PrivacyLens.Matcher = Object.freeze({
     collectMatches,
     maskText,
-    supportedTypes: Object.freeze(["email", "phone", "api-key", "access-token", "credential"])
+    supportedTypes: Object.freeze(["email", "phone", "payment-card", "crypto", "api-key", "access-token", "credential"])
   });
 })();

@@ -5,14 +5,14 @@
   root.PrivacyLens ||= {};
 
   const SETTINGS_KEY = "privacyLensSettings";
-  const SETTINGS_SCHEMA_VERSION = 5;
+  const SETTINGS_SCHEMA_VERSION = 6;
   const MAX_SAVED_SITES = 100;
   const MAX_CUSTOM_TERMS = 50;
   const MAX_CUSTOM_REGEX_RULES = 20;
   const MAX_REGEX_PATTERN_LENGTH = 160;
   const DEFAULT_NSFW_API_URL = root.PrivacyLens.Config?.defaultNsfwApiUrl
     || "https://labs.wiplash.ai/privacy-lens/api/v1/classify";
-  const REDACTION_TYPES = Object.freeze(["email", "phone", "api-key", "access-token", "credential"]);
+  const REDACTION_TYPES = Object.freeze(["email", "phone", "payment-card", "crypto", "api-key", "access-token", "credential"]);
   const DEFAULT_REDACTION_TYPES = Object.freeze(Object.fromEntries(
     REDACTION_TYPES.map((type) => [type, true])
   ));
@@ -22,6 +22,7 @@
     defaultBlurTreatment: "soft",
     defaultImageTreatment: "blur",
     defaultTextTreatment: "redact",
+    protectFormFields: true,
     redactionTypes: DEFAULT_REDACTION_TYPES,
     customTerms: Object.freeze([]),
     customRegexRules: Object.freeze([]),
@@ -71,6 +72,7 @@
       defaultBlurTreatment: sanitizeTreatment(source.defaultBlurTreatment),
       defaultImageTreatment: sanitizeImageTreatment(source.defaultImageTreatment),
       defaultTextTreatment: sanitizeTextTreatment(source.defaultTextTreatment),
+      protectFormFields: source.protectFormFields !== false,
       redactionTypes: sanitizeRedactionTypes(source.redactionTypes),
       customTerms: sanitizeCustomTerms(source.customTerms),
       customRegexRules: sanitizeCustomRegexRules(source.customRegexRules),

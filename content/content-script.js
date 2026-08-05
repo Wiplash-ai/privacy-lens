@@ -664,7 +664,8 @@
     return {
       enabledTypes: value.redactionTypes,
       customTerms: value.customTerms,
-      customRegexRules: value.customRegexRules
+      customRegexRules: value.customRegexRules,
+      protectFormFields: value.protectFormFields
     };
   }
 
