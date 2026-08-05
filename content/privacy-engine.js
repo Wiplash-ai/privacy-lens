@@ -1,0 +1,982 @@
+"use strict";
+
+(() => {
+  const root = globalThis;
+  root.PrivacyLens ||= {};
+
+  const MASK_NAME = "privacy-lens-sensitive";
+  const STYLE_ID = "privacy-lens-page-effects";
+  const BLUR_PROPERTY = "--privacy-lens-private-blur";
+  const CLASS_IMAGES_HIDDEN = "privacy-lens-private-images-hidden";
+  const CLASS_IMAGES_BLURRED = "privacy-lens-private-images-blurred";
+  const CLASS_IMAGES_STAMPED = "privacy-lens-private-images-stamped";
+  const CLASS_IMAGES_NSFW = "privacy-lens-private-images-nsfw";
+  const CLASS_TEXT_REDACTED = "privacy-lens-private-text-redacted";
+  const CLASS_TEXT_BLURRED = "privacy-lens-private-text-blurred";
+  const CLASS_SOFT = "privacy-lens-private-blur-soft";
+  const CLASS_FROSTED = "privacy-lens-private-blur-frosted";
+  const STAMP_HOST_ID = "privacy-lens-media-stamps";
+  const MEDIA_SELECTOR = "img, video, svg, canvas, iframe, input[type='image'], object[type^='image'], embed[type^='image']";
+  const STAMP_SELECTOR = "img, video, svg, canvas, input[type='image'], object[type^='image'], embed[type^='image']";
+  const SKIP_SELECTOR = [
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "textarea",
+    "input",
+    "select",
+    "option",
+    "[contenteditable]:not([contenteditable='false'])",
+    "[role='textbox']",
+    ".CodeMirror",
+    ".cm-editor",
+    ".monaco-editor",
+    ".ace_editor",
+    "[data-slate-editor]",
+    "[data-lexical-editor]",
+    "[data-code-editor]",
+    "[aria-hidden='true']"
+  ].join(",");
+
+  class TextMasker {
+    constructor(documentValue, matcher, onCountChange = () => undefined, options = {}) {
+      this.document = documentValue;
+      this.matcher = matcher;
+      this.onCountChange = onCountChange;
+      this.enabled = false;
+      this.count = 0;
+      this.observer = null;
+      this.scanQueued = false;
+      this.originals = new WeakMap();
+      this.maskedNodes = new Set();
+      const windowValue = this.document.defaultView || root;
+      this.highlightRegistry = windowValue.CSS && windowValue.CSS.highlights;
+      this.HighlightClass = windowValue.Highlight || root.Highlight;
+      this.previousHighlight = null;
+      this.matchOptions = {
+        enabledTypes: options.enabledTypes || null,
+        customTerms: Array.isArray(options.customTerms) ? options.customTerms : [],
+        customRegexRules: Array.isArray(options.customRegexRules) ? options.customRegexRules : []
+      };
+      this.treatment = options.treatment === "blur" ? "blur" : "redact";
+      this.usesHighlights = Boolean(
+        this.highlightRegistry
+        && typeof this.highlightRegistry.set === "function"
+        && typeof this.HighlightClass === "function"
+      );
+    }
+
+    setOptions(value = {}) {
+      this.matchOptions = {
+        enabledTypes: value.enabledTypes || null,
+        customTerms: Array.isArray(value.customTerms) ? value.customTerms : [],
+        customRegexRules: Array.isArray(value.customRegexRules) ? value.customRegexRules : []
+      };
+      this.restart();
+    }
+
+    setTreatment(value) {
+      const treatment = value === "blur" ? "blur" : "redact";
+      if (treatment === this.treatment) return;
+      this.treatment = treatment;
+      this.restart();
+    }
+
+    restart() {
+      if (!this.enabled) return;
+      const previousHighlight = this.previousHighlight;
+      this.disconnect();
+      this.clear();
+      this.previousHighlight = previousHighlight;
+      this.observe();
+      this.scan();
+    }
+
+    setEnabled(value) {
+      const next = value === true;
+      if (next === this.enabled) {
+        if (next) this.scan();
+        return;
+      }
+
+      this.enabled = next;
+      if (next) {
+        if (this.usesHighlights && typeof this.highlightRegistry.get === "function") {
+          this.previousHighlight = this.highlightRegistry.get(MASK_NAME) || null;
+        }
+        this.observe();
+        this.scan();
+      } else {
+        this.disconnect();
+        this.clear();
+      }
+    }
+
+    observe() {
+      if (this.observer) return;
+      const MutationObserverClass = (this.document.defaultView || root).MutationObserver;
+      this.observer = new MutationObserverClass((mutations) => {
+        if (!this.enabled) return;
+
+        if (!this.usesHighlights) {
+          this.handleFallbackMutations(mutations);
+          return;
+        }
+
+        this.queueScan();
+      });
+      this.observer.observe(this.document.documentElement, {
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
+    }
+
+    disconnect() {
+      if (this.observer) this.observer.disconnect();
+      this.observer = null;
+      this.scanQueued = false;
+    }
+
+    scan() {
+      if (!this.enabled) return;
+      const nodes = this.collectEligibleTextNodes();
+      if (this.usesHighlights) this.applyHighlights(nodes);
+      else this.applyFallback(nodes);
+    }
+
+    queueScan() {
+      if (this.scanQueued) return;
+      this.scanQueued = true;
+      const queue = typeof root.queueMicrotask === "function"
+        ? root.queueMicrotask.bind(root)
+        : (callback) => Promise.resolve().then(callback);
+      queue(() => {
+        this.scanQueued = false;
+        this.scan();
+      });
+    }
+
+    collectEligibleTextNodes(startNode = this.document.body || this.document.documentElement) {
+      if (!startNode) return [];
+      const view = this.document.defaultView || root;
+      const NodeFilterValue = view.NodeFilter;
+      const nodes = [];
+      const walker = this.document.createTreeWalker(startNode, NodeFilterValue.SHOW_TEXT, {
+        acceptNode: (node) => {
+          if (!node.data || !node.data.trim()) return NodeFilterValue.FILTER_REJECT;
+          const parent = node.parentElement;
+          if (!parent || parent.closest(SKIP_SELECTOR)) return NodeFilterValue.FILTER_REJECT;
+          return NodeFilterValue.FILTER_ACCEPT;
+        }
+      });
+
+      let node = walker.nextNode();
+      while (node) {
+        if (this.collectNodeMatches(node).length) nodes.push(node);
+        node = walker.nextNode();
+      }
+      return nodes;
+    }
+
+    collectNodeMatches(node) {
+      if (!node?.data) return [];
+      const anchor = node.parentElement?.closest("a[href]");
+      if (anchor && this.isSensitiveLink(anchor)) {
+        const start = node.data.search(/\S/);
+        if (start < 0) return [];
+        const end = node.data.search(/\s*$/);
+        return [{ start, end, type: "link" }];
+      }
+      return this.matcher.collectMatches(node.data, this.matchOptions);
+    }
+
+    isSensitiveLink(anchor) {
+      const href = anchor.getAttribute("href") || "";
+      const decodedHref = safeDecodeURIComponent(href);
+      return /^(?:mailto|tel):/i.test(href)
+        || this.matcher.collectMatches(decodedHref, this.matchOptions).length > 0
+        || this.matcher.collectMatches(anchor.textContent || "", this.matchOptions).length > 0;
+    }
+
+    applyHighlights(nodes) {
+      const ranges = [];
+      let count = 0;
+      nodes.forEach((node) => {
+        this.collectNodeMatches(node).forEach((match) => {
+          const range = this.document.createRange();
+          range.setStart(node, match.start);
+          range.setEnd(node, match.end);
+          ranges.push(range);
+          count += 1;
+        });
+      });
+
+      this.highlightRegistry.delete(MASK_NAME);
+      if (ranges.length) this.highlightRegistry.set(MASK_NAME, new this.HighlightClass(...ranges));
+      this.setCount(count);
+    }
+
+    applyFallback(nodes) {
+      nodes.forEach((node) => this.maskFallbackNode(node));
+      this.recountFallback();
+    }
+
+    maskFallbackNode(node) {
+      const matches = this.collectNodeMatches(node);
+      if (!matches.length) return;
+      const masked = this.matcher.maskText(node.data, matches, this.treatment);
+      this.originals.set(node, { original: node.data, masked, count: matches.length });
+      this.maskedNodes.add(node);
+      node.data = masked;
+    }
+
+    handleFallbackMutations(mutations) {
+      mutations.forEach((mutation) => {
+        if (mutation.type === "characterData") {
+          const node = mutation.target;
+          const record = this.originals.get(node);
+          if (record && node.data === record.masked) return;
+          if (record) {
+            this.originals.delete(node);
+            this.maskedNodes.delete(node);
+          }
+          if (this.isEligibleTextNode(node)) this.maskFallbackNode(node);
+          return;
+        }
+
+        mutation.removedNodes.forEach((node) => this.restoreFallbackSubtree(node));
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 3 && this.isEligibleTextNode(node)) {
+            this.maskFallbackNode(node);
+          } else if (node.nodeType === 1) {
+            this.collectEligibleTextNodes(node).forEach((textNode) => this.maskFallbackNode(textNode));
+          }
+        });
+      });
+      this.recountFallback();
+    }
+
+    restoreFallbackSubtree(node) {
+      if (!node) return;
+      if (node.nodeType === 3) {
+        this.restoreFallbackNode(node);
+        return;
+      }
+      if (node.nodeType !== 1) return;
+      const view = this.document.defaultView || root;
+      const walker = this.document.createTreeWalker(node, view.NodeFilter.SHOW_TEXT);
+      let textNode = walker.nextNode();
+      while (textNode) {
+        this.restoreFallbackNode(textNode);
+        textNode = walker.nextNode();
+      }
+    }
+
+    restoreFallbackNode(node) {
+      const record = this.originals.get(node);
+      if (record && node.data === record.masked) node.data = record.original;
+      this.originals.delete(node);
+      this.maskedNodes.delete(node);
+    }
+
+    isEligibleTextNode(node) {
+      if (!node || node.nodeType !== 3 || !node.data || !node.data.trim()) return false;
+      const parent = node.parentElement;
+      return Boolean(
+        parent
+        && !parent.closest(SKIP_SELECTOR)
+        && this.collectNodeMatches(node).length
+      );
+    }
+
+    recountFallback() {
+      let count = 0;
+      this.maskedNodes.forEach((node) => {
+        const record = this.originals.get(node);
+        if (!node.isConnected || !record) {
+          this.restoreFallbackNode(node);
+          return;
+        }
+        count += record.count;
+      });
+      this.setCount(count);
+    }
+
+    clear() {
+      if (this.usesHighlights) {
+        if (this.previousHighlight) this.highlightRegistry.set(MASK_NAME, this.previousHighlight);
+        else this.highlightRegistry.delete(MASK_NAME);
+        this.previousHighlight = null;
+      }
+
+      this.maskedNodes.forEach((node) => {
+        this.restoreFallbackNode(node);
+      });
+      this.maskedNodes.clear();
+      this.setCount(0);
+    }
+
+    setCount(value) {
+      const count = Number.isFinite(value) ? value : 0;
+      if (count === this.count) return;
+      this.count = count;
+      this.onCountChange(count);
+    }
+  }
+
+  function safeDecodeURIComponent(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+
+  class MediaStamper {
+    constructor(documentValue) {
+      this.document = documentValue;
+      this.view = documentValue.defaultView || root;
+      this.enabled = false;
+      this.host = null;
+      this.layer = null;
+      this.stamps = new Map();
+      this.observedMedia = new Set();
+      this.frame = 0;
+      this.updateBound = () => this.queueUpdate();
+      this.ResizeObserverClass = this.view.ResizeObserver;
+      this.MutationObserverClass = this.view.MutationObserver;
+      this.resizeObserver = this.ResizeObserverClass
+        ? new this.ResizeObserverClass(this.updateBound)
+        : null;
+      this.mutationObserver = null;
+    }
+
+    setEnabled(value) {
+      const next = value === true;
+      if (next === this.enabled) {
+        if (next) this.queueUpdate();
+        return;
+      }
+      this.enabled = next;
+      if (next) this.start();
+      else this.stop();
+    }
+
+    start() {
+      if (!this.host) this.createHost();
+      this.view.addEventListener("scroll", this.updateBound, { capture: true, passive: true });
+      this.view.addEventListener("resize", this.updateBound, { passive: true });
+      const body = this.document.body || this.document.documentElement;
+      if (this.MutationObserverClass && body) {
+        this.mutationObserver = new this.MutationObserverClass(this.updateBound);
+        this.mutationObserver.observe(body, {
+          childList: true,
+          attributes: true,
+          subtree: true,
+          attributeFilter: ["class", "style", "src", "hidden"]
+        });
+      }
+      this.queueUpdate();
+    }
+
+    createHost() {
+      const existing = this.document.getElementById(STAMP_HOST_ID);
+      if (existing) existing.remove();
+      this.host = this.document.createElement("div");
+      this.host.id = STAMP_HOST_ID;
+      this.host.dataset.privacyLensOwned = "true";
+      this.host.dataset.stampCount = "0";
+      this.host.setAttribute("aria-hidden", "true");
+      Object.assign(this.host.style, {
+        position: "fixed",
+        inset: "0",
+        zIndex: "2147483645",
+        overflow: "hidden",
+        pointerEvents: "none"
+      });
+      const shadow = this.host.attachShadow({ mode: "open" });
+      const style = this.document.createElement("style");
+      style.textContent = `
+        :host { all: initial; }
+        *, *::before, *::after { box-sizing: border-box; }
+        .layer { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+        .stamp {
+          position: fixed;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          background: #050403;
+          box-shadow: inset 0 0 0 1px rgba(194, 165, 111, .18);
+          contain: strict;
+        }
+        .stamp > span {
+          max-width: 88%;
+          padding: .18em .38em .12em;
+          color: #a20f0f;
+          border: .13em solid currentColor;
+          box-shadow: inset 0 0 0 .045em currentColor, 0 1px 0 rgba(255,255,255,.25);
+          background: #d5ba84;
+          font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+          font-size: var(--stamp-size, 20px);
+          line-height: .92;
+          letter-spacing: .08em;
+          text-align: center;
+          text-transform: uppercase;
+          white-space: nowrap;
+          transform: rotate(-11deg);
+          opacity: .94;
+          mix-blend-mode: normal;
+        }
+      `;
+      this.layer = this.document.createElement("div");
+      this.layer.className = "layer";
+      shadow.append(style, this.layer);
+      this.document.documentElement.appendChild(this.host);
+    }
+
+    queueUpdate() {
+      if (!this.enabled || this.frame) return;
+      const request = typeof this.view.requestAnimationFrame === "function"
+        ? this.view.requestAnimationFrame.bind(this.view)
+        : (callback) => this.view.setTimeout(callback, 0);
+      this.frame = request(() => {
+        this.frame = 0;
+        this.update();
+      });
+    }
+
+    update() {
+      if (!this.enabled || !this.layer || !this.host) return;
+      const seenRects = new Set();
+      const candidates = [...this.document.querySelectorAll(STAMP_SELECTOR)]
+        .filter((element) => this.shouldStamp(element))
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          const key = [rect.left, rect.top, rect.right, rect.bottom]
+            .map((value) => Math.round(value / 2) * 2)
+            .join(":");
+          if (seenRects.has(key)) return false;
+          seenRects.add(key);
+          return true;
+        });
+      const active = new Set(candidates);
+
+      this.stamps.forEach((stamp, element) => {
+        if (active.has(element)) return;
+        stamp.remove();
+        this.stamps.delete(element);
+      });
+
+      candidates.forEach((element) => {
+        let stamp = this.stamps.get(element);
+        if (!stamp) {
+          stamp = this.document.createElement("div");
+          stamp.className = "stamp";
+          const label = this.document.createElement("span");
+          label.textContent = "TOP SECRET";
+          stamp.appendChild(label);
+          this.layer.appendChild(stamp);
+          this.stamps.set(element, stamp);
+        }
+        const rect = element.getBoundingClientRect();
+        stamp.style.left = `${Math.max(0, rect.left)}px`;
+        stamp.style.top = `${Math.max(0, rect.top)}px`;
+        stamp.style.width = `${Math.max(0, Math.min(rect.right, this.view.innerWidth) - Math.max(0, rect.left))}px`;
+        stamp.style.height = `${Math.max(0, Math.min(rect.bottom, this.view.innerHeight) - Math.max(0, rect.top))}px`;
+        stamp.style.setProperty("--stamp-size", `${Math.round(Math.min(28, Math.max(11, rect.width / 8)))}px`);
+      });
+
+      this.syncResizeObservers(active);
+      this.host.dataset.stampCount = String(this.stamps.size);
+    }
+
+    shouldStamp(element) {
+      if (!element.isConnected || typeof element.getBoundingClientRect !== "function") return false;
+      const rect = element.getBoundingClientRect();
+      if (rect.width < 140 || rect.height < 90 || rect.right <= 0 || rect.bottom <= 0) return false;
+      if (rect.left >= this.view.innerWidth || rect.top >= this.view.innerHeight) return false;
+      const style = this.view.getComputedStyle(element);
+      return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || 1) !== 0;
+    }
+
+    syncResizeObservers(active) {
+      if (!this.resizeObserver) return;
+      this.observedMedia.forEach((element) => {
+        if (active.has(element)) return;
+        this.resizeObserver.unobserve(element);
+        this.observedMedia.delete(element);
+      });
+      active.forEach((element) => {
+        if (this.observedMedia.has(element)) return;
+        this.resizeObserver.observe(element);
+        this.observedMedia.add(element);
+      });
+    }
+
+    stop() {
+      this.view.removeEventListener("scroll", this.updateBound, { capture: true });
+      this.view.removeEventListener("resize", this.updateBound);
+      if (this.mutationObserver) this.mutationObserver.disconnect();
+      if (this.resizeObserver) this.resizeObserver.disconnect();
+      this.mutationObserver = null;
+      this.observedMedia.clear();
+      this.stamps.clear();
+      this.host?.remove();
+      this.host = null;
+      this.layer = null;
+      this.frame = 0;
+    }
+
+    destroy() {
+      this.enabled = false;
+      this.stop();
+    }
+  }
+
+  class NsfwFilter {
+    constructor(documentValue, classifyImage = null) {
+      this.document = documentValue;
+      this.view = documentValue.defaultView || root;
+      this.classifyImage = typeof classifyImage === "function" ? classifyImage : null;
+      this.enabled = false;
+      this.observer = null;
+      this.records = new WeakMap();
+      this.trackedImages = new Set();
+      this.cache = new Map();
+      this.scanQueued = false;
+    }
+
+    setEnabled(value) {
+      const next = value === true;
+      if (next === this.enabled) {
+        if (next) this.scan();
+        return;
+      }
+      this.enabled = next;
+      if (next) {
+        this.observe();
+        this.scan();
+      } else {
+        this.disconnect();
+        this.clear();
+      }
+    }
+
+    observe() {
+      if (this.observer) return;
+      const body = this.document.body || this.document.documentElement;
+      if (!body || !this.view.MutationObserver) return;
+      this.observer = new this.view.MutationObserver(() => this.queueScan());
+      this.observer.observe(body, {
+        childList: true,
+        attributes: true,
+        subtree: true,
+        attributeFilter: ["src", "srcset", "sizes"]
+      });
+    }
+
+    queueScan() {
+      if (!this.enabled || this.scanQueued) return;
+      this.scanQueued = true;
+      const queue = typeof root.queueMicrotask === "function"
+        ? root.queueMicrotask.bind(root)
+        : (callback) => Promise.resolve().then(callback);
+      queue(() => {
+        this.scanQueued = false;
+        this.scan();
+      });
+    }
+
+    scan() {
+      if (!this.enabled) return;
+      this.document.querySelectorAll("img:not([data-privacy-lens-owned])").forEach((image) => {
+        this.classify(image);
+      });
+    }
+
+    async classify(image) {
+      if (!this.enabled || !image || !image.isConnected) return;
+      const sourceUrl = image.currentSrc || image.src || "";
+      const existing = this.records.get(image);
+      if (existing && existing.sourceUrl === sourceUrl) return;
+
+      this.trackedImages.add(image);
+      this.records.set(image, { sourceUrl, status: "pending" });
+      image.dataset.privacyLensNsfwStatus = "pending";
+
+      if (!sourceUrl || !this.classifyImage) {
+        this.setStatus(image, sourceUrl, "error");
+        return;
+      }
+
+      const cached = this.cache.get(sourceUrl);
+      if (cached) {
+        this.setStatus(image, sourceUrl, cached);
+        return;
+      }
+
+      try {
+        const result = await this.classifyImage(image, sourceUrl);
+        const status = result && result.safe === true ? "safe" : "unsafe";
+        this.cache.set(sourceUrl, status);
+        this.setStatus(image, sourceUrl, status);
+      } catch {
+        this.setStatus(image, sourceUrl, "error");
+      }
+    }
+
+    setStatus(image, sourceUrl, status) {
+      if (!this.enabled || !image.isConnected) return;
+      const currentUrl = image.currentSrc || image.src || "";
+      if (currentUrl !== sourceUrl) {
+        this.classify(image);
+        return;
+      }
+      this.records.set(image, { sourceUrl, status });
+      image.dataset.privacyLensNsfwStatus = status;
+    }
+
+    disconnect() {
+      if (this.observer) this.observer.disconnect();
+      this.observer = null;
+      this.scanQueued = false;
+    }
+
+    clear() {
+      this.trackedImages.forEach((image) => {
+        delete image.dataset.privacyLensNsfwStatus;
+      });
+      this.trackedImages.clear();
+      this.records = new WeakMap();
+      this.cache.clear();
+    }
+
+    destroy() {
+      this.enabled = false;
+      this.disconnect();
+      this.clear();
+      this.cache.clear();
+    }
+  }
+
+  class TitleProtector {
+    constructor(documentValue, replacement = "Top Secret") {
+      this.document = documentValue;
+      this.replacement = replacement;
+      this.enabled = false;
+      this.originalTitle = null;
+      this.observer = null;
+      this.writeQueued = false;
+    }
+
+    setReplacement(value) {
+      this.replacement = typeof value === "string" && value.trim() ? value.trim().slice(0, 80) : "Top Secret";
+      if (this.enabled) this.writeNeutralTitle();
+    }
+
+    setEnabled(value) {
+      const next = value === true;
+      if (next === this.enabled) return;
+      this.enabled = next;
+
+      if (next) {
+        this.originalTitle = this.document.title;
+        this.observe();
+        this.writeNeutralTitle();
+      } else {
+        this.disconnect();
+        const title = this.originalTitle;
+        this.originalTitle = null;
+        if (title !== null) this.document.title = title;
+      }
+    }
+
+    observe() {
+      const view = this.document.defaultView || root;
+      this.observer = new view.MutationObserver(() => {
+        if (!this.enabled || this.document.title === this.replacement) return;
+        this.originalTitle = this.document.title;
+        this.queueNeutralTitle();
+      });
+      this.observer.observe(this.document.documentElement, {
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
+    }
+
+    queueNeutralTitle() {
+      if (this.writeQueued) return;
+      this.writeQueued = true;
+      const queue = typeof root.queueMicrotask === "function"
+        ? root.queueMicrotask.bind(root)
+        : (callback) => Promise.resolve().then(callback);
+      queue(() => {
+        this.writeQueued = false;
+        if (this.enabled) this.writeNeutralTitle();
+      });
+    }
+
+    writeNeutralTitle() {
+      if (this.document.title !== this.replacement) this.document.title = this.replacement;
+    }
+
+    getInfo() {
+      return {
+        protected: this.enabled,
+        originalTitle: this.originalTitle ?? this.document.title
+      };
+    }
+
+    disconnect() {
+      if (this.observer) this.observer.disconnect();
+      this.observer = null;
+      this.writeQueued = false;
+    }
+  }
+
+  class PrivacyEngine {
+    constructor(documentValue, options = {}) {
+      if (!documentValue || !documentValue.documentElement) {
+        throw new TypeError("PrivacyEngine requires a document.");
+      }
+      if (!root.PrivacyLens.Matcher || !root.PrivacyLens.Settings) {
+        throw new Error("Privacy Lens matcher and settings must load before the engine.");
+      }
+
+      this.document = documentValue;
+      this.rootElement = documentValue.documentElement;
+      this.isTopFrame = options.isTopFrame !== false;
+      this.state = root.PrivacyLens.Settings.defaultPageState();
+      this.originalBlurValue = this.rootElement.style.getPropertyValue(BLUR_PROPERTY);
+      this.originalBlurPriority = this.rootElement.style.getPropertyPriority(BLUR_PROPERTY);
+      this.masker = new TextMasker(
+        documentValue,
+        root.PrivacyLens.Matcher,
+        typeof options.onMaskCountChange === "function" ? options.onMaskCountChange : () => undefined,
+        options.redactionOptions
+      );
+      this.mediaStamper = new MediaStamper(documentValue);
+      this.nsfwFilter = new NsfwFilter(documentValue, options.classifyImage);
+      this.titleProtector = new TitleProtector(documentValue, options.neutralTitle);
+      this.installStyle();
+    }
+
+    installStyle() {
+      const style = this.document.createElement("style");
+      style.id = this.document.getElementById(STYLE_ID) ? `${STYLE_ID}-extension` : STYLE_ID;
+      style.dataset.privacyLensOwned = "true";
+      style.textContent = `
+        html.${CLASS_TEXT_REDACTED} ::highlight(${MASK_NAME}) {
+          color: transparent;
+          background-color: #090806;
+          text-shadow: none;
+          -webkit-text-fill-color: transparent;
+        }
+        html.${CLASS_TEXT_BLURRED} ::highlight(${MASK_NAME}) {
+          color: transparent;
+          background-color: transparent;
+          text-shadow: 0 0 5px rgba(12, 9, 5, .96);
+          -webkit-text-fill-color: transparent;
+        }
+        html.${CLASS_IMAGES_HIDDEN} body img,
+        html.${CLASS_IMAGES_HIDDEN} body picture,
+        html.${CLASS_IMAGES_HIDDEN} body svg,
+        html.${CLASS_IMAGES_HIDDEN} body canvas,
+        html.${CLASS_IMAGES_HIDDEN} body video,
+        html.${CLASS_IMAGES_HIDDEN} body iframe,
+        html.${CLASS_IMAGES_HIDDEN} body input[type="image"],
+        html.${CLASS_IMAGES_HIDDEN} body object[type^="image"],
+        html.${CLASS_IMAGES_HIDDEN} body embed[type^="image"] {
+          visibility: hidden !important;
+          opacity: 0 !important;
+        }
+        html.${CLASS_IMAGES_HIDDEN},
+        html.${CLASS_IMAGES_HIDDEN} body,
+        html.${CLASS_IMAGES_HIDDEN} body *,
+        html.${CLASS_IMAGES_HIDDEN}::before,
+        html.${CLASS_IMAGES_HIDDEN}::after,
+        html.${CLASS_IMAGES_HIDDEN} body::before,
+        html.${CLASS_IMAGES_HIDDEN} body::after,
+        html.${CLASS_IMAGES_HIDDEN} body *::before,
+        html.${CLASS_IMAGES_HIDDEN} body *::after {
+          background-image: none !important;
+        }
+        html.${CLASS_IMAGES_BLURRED} body img,
+        html.${CLASS_IMAGES_BLURRED} body svg,
+        html.${CLASS_IMAGES_BLURRED} body canvas,
+        html.${CLASS_IMAGES_BLURRED} body video,
+        html.${CLASS_IMAGES_BLURRED} body iframe,
+        html.${CLASS_IMAGES_BLURRED} body input[type="image"],
+        html.${CLASS_IMAGES_BLURRED} body object[type^="image"],
+        html.${CLASS_IMAGES_BLURRED} body embed[type^="image"] {
+          filter: blur(var(${BLUR_PROPERTY}, 12px)) !important;
+        }
+        html.${CLASS_IMAGES_STAMPED} body img,
+        html.${CLASS_IMAGES_STAMPED} body svg,
+        html.${CLASS_IMAGES_STAMPED} body canvas,
+        html.${CLASS_IMAGES_STAMPED} body video,
+        html.${CLASS_IMAGES_STAMPED} body iframe,
+        html.${CLASS_IMAGES_STAMPED} body input[type="image"],
+        html.${CLASS_IMAGES_STAMPED} body object[type^="image"],
+        html.${CLASS_IMAGES_STAMPED} body embed[type^="image"] {
+          filter: brightness(0) grayscale(1) !important;
+          background-color: #050403 !important;
+        }
+        html.${CLASS_IMAGES_NSFW} body img:not([data-privacy-lens-nsfw-status="safe"]),
+        html.${CLASS_IMAGES_NSFW} body svg,
+        html.${CLASS_IMAGES_NSFW} body canvas,
+        html.${CLASS_IMAGES_NSFW} body video,
+        html.${CLASS_IMAGES_NSFW} body iframe,
+        html.${CLASS_IMAGES_NSFW} body input[type="image"],
+        html.${CLASS_IMAGES_NSFW} body object[type^="image"],
+        html.${CLASS_IMAGES_NSFW} body embed[type^="image"] {
+          filter: brightness(0) grayscale(1) !important;
+          background-color: #050403 !important;
+        }
+        html.${CLASS_IMAGES_STAMPED},
+        html.${CLASS_IMAGES_STAMPED} body,
+        html.${CLASS_IMAGES_STAMPED} body *,
+        html.${CLASS_IMAGES_NSFW},
+        html.${CLASS_IMAGES_NSFW} body,
+        html.${CLASS_IMAGES_NSFW} body * {
+          background-image: none !important;
+        }
+        html.${CLASS_SOFT} > body {
+          filter: blur(var(${BLUR_PROPERTY}, 12px)) !important;
+        }
+        html.${CLASS_FROSTED} > body {
+          filter: blur(calc(var(${BLUR_PROPERTY}, 12px) + 6px)) grayscale(1) saturate(0) contrast(.58) brightness(1.14) !important;
+        }
+      `;
+      (this.document.head || this.rootElement).appendChild(style);
+      this.styleElement = style;
+    }
+
+    setNeutralTitle(value) {
+      this.titleProtector.setReplacement(value);
+    }
+
+    setRedactionOptions(value) {
+      this.masker.setOptions(value);
+    }
+
+    applyState(value) {
+      this.state = root.PrivacyLens.Settings.sanitizePageState(value, {
+        defaultBlurStrength: this.state.blurStrength,
+        defaultBlurTreatment: this.state.blurTreatment,
+        defaultImageTreatment: this.state.imageTreatment,
+        defaultTextTreatment: this.state.textTreatment
+      });
+
+      this.rootElement.classList.toggle(
+        CLASS_IMAGES_HIDDEN,
+        this.state.imagesProtected && this.state.imageTreatment === "hidden"
+      );
+      this.rootElement.classList.toggle(
+        CLASS_IMAGES_BLURRED,
+        this.state.imagesProtected && this.state.imageTreatment === "blur"
+      );
+      this.rootElement.classList.toggle(
+        CLASS_IMAGES_STAMPED,
+        this.state.imagesProtected && this.state.imageTreatment === "stamp"
+      );
+      this.rootElement.classList.toggle(
+        CLASS_IMAGES_NSFW,
+        this.state.imagesProtected && this.state.imageTreatment === "nsfw"
+      );
+      this.rootElement.classList.toggle(
+        CLASS_TEXT_REDACTED,
+        this.state.sensitiveMasked && this.state.textTreatment === "redact"
+      );
+      this.rootElement.classList.toggle(
+        CLASS_TEXT_BLURRED,
+        this.state.sensitiveMasked && this.state.textTreatment === "blur"
+      );
+      this.rootElement.classList.toggle(
+        CLASS_SOFT,
+        this.state.blurEnabled && this.state.blurTreatment === "soft"
+      );
+      this.rootElement.classList.toggle(
+        CLASS_FROSTED,
+        this.state.blurEnabled && this.state.blurTreatment === "frosted"
+      );
+
+      const needsBlurStrength = this.state.blurEnabled
+        || (this.state.imagesProtected && this.state.imageTreatment === "blur");
+      if (needsBlurStrength) {
+        this.rootElement.style.setProperty(BLUR_PROPERTY, `${this.state.blurStrength}px`);
+      } else {
+        this.restoreBlurProperty();
+      }
+
+      this.masker.setTreatment(this.state.textTreatment);
+      this.masker.setEnabled(this.state.sensitiveMasked);
+      this.mediaStamper.setEnabled(
+        this.state.imagesProtected && this.state.imageTreatment === "stamp"
+      );
+      this.nsfwFilter.setEnabled(
+        this.state.imagesProtected && this.state.imageTreatment === "nsfw"
+      );
+      if (this.isTopFrame) this.titleProtector.setEnabled(this.state.titleProtected);
+      return this.getState();
+    }
+
+    reset(value = {}) {
+      const defaults = root.PrivacyLens.Settings.sanitizePageState(value, this.state);
+      return this.applyState({
+        ...defaults,
+        imagesProtected: false,
+        blurEnabled: false,
+        titleProtected: false,
+        sensitiveMasked: false
+      });
+    }
+
+    getState() {
+      return { ...this.state, maskCount: this.masker.count };
+    }
+
+    getTitleInfo() {
+      return this.titleProtector.getInfo();
+    }
+
+    destroy() {
+      this.reset(this.state);
+      this.masker.disconnect();
+      this.mediaStamper.destroy();
+      this.nsfwFilter.destroy();
+      this.titleProtector.disconnect();
+      this.styleElement?.remove();
+      this.styleElement = null;
+    }
+
+    restoreBlurProperty() {
+      if (this.originalBlurValue) {
+        this.rootElement.style.setProperty(BLUR_PROPERTY, this.originalBlurValue, this.originalBlurPriority);
+      } else {
+        this.rootElement.style.removeProperty(BLUR_PROPERTY);
+      }
+    }
+  }
+
+  root.PrivacyLens.TextMasker = TextMasker;
+  root.PrivacyLens.MediaStamper = MediaStamper;
+  root.PrivacyLens.NsfwFilter = NsfwFilter;
+  root.PrivacyLens.TitleProtector = TitleProtector;
+  root.PrivacyLens.PrivacyEngine = PrivacyEngine;
+  root.PrivacyLens.EngineConstants = Object.freeze({
+    MASK_NAME,
+    STYLE_ID,
+    CLASS_IMAGES_HIDDEN,
+    CLASS_IMAGES_BLURRED,
+    CLASS_IMAGES_STAMPED,
+    CLASS_IMAGES_NSFW,
+    CLASS_TEXT_REDACTED,
+    CLASS_TEXT_BLURRED,
+    CLASS_SOFT,
+    CLASS_FROSTED
+  });
+})();

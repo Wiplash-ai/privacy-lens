@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 670" role="img" aria-labelledby="title desc">
+  <title id="title">Studio signal</title><desc id="desc">Abstract microphone and radio waves.</desc>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#214b3a"/><stop offset="1" stop-color="#08110c"/></linearGradient><pattern id="p" width="26" height="26" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.5" fill="#b4f3c7" opacity=".16"/></pattern></defs>
+  <rect width="800" height="670" fill="url(#g)"/><rect width="800" height="670" fill="url(#p)"/>
+  <circle cx="400" cy="330" r="230" fill="none" stroke="#8ddaae" stroke-width="2" opacity=".25"/><circle cx="400" cy="330" r="170" fill="none" stroke="#8ddaae" stroke-width="2" opacity=".4"/>
+  <rect x="335" y="170" width="130" height="270" rx="65" fill="#eae4d6"/><rect x="359" y="205" width="82" height="160" rx="41" fill="#14261d"/>
+  <path d="M290 335v35c0 61 49 110 110 110s110-49 110-110v-35M400 480v86M335 566h130" fill="none" stroke="#eae4d6" stroke-width="20" stroke-linecap="round"/>
+  <path d="M125 280c-35 34-35 76 0 110M675 280c35 34 35 76 0 110M72 230c-69 65-69 155 0 220M728 230c69 65 69 155 0 220" fill="none" stroke="#b4f3c7" stroke-width="8" stroke-linecap="round" opacity=".7"/>
+  <text x="42" y="58" fill="#b4f3c7" font-family="monospace" font-size="16" letter-spacing="3">NIGHT SIGNAL / FIELD 048</text>
+</svg>

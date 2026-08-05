@@ -1,0 +1,15 @@
+:root { color:#21190f; background:#e3c994; font:16px/1.5 Georgia,serif; }
+* { box-sizing:border-box; }
+body { margin:0; }
+main { width:min(980px,calc(100% - 32px)); margin:auto; padding:32px 0 100px; display:grid; gap:24px; }
+section,.hero-art { margin:0; padding:20px; border:1px solid #85663b; background:rgba(255,245,218,.45); }
+.sensitive-copy { display:grid; gap:8px; }
+.sensitive-copy p,.sensitive-copy h1 { margin:0; }
+.media-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.media-grid img,.media-grid video,.hero-art img { width:100%; min-height:180px; display:block; object-fit:cover; background:#19130d; }
+#smallSensitiveBadge { width:72px; min-height:72px; height:72px; }
+.hero-art img { min-height:260px; }
+pre { padding:16px; overflow:auto; color:#d5f1d5; background:#11150f; }
+input,textarea,.monaco-editor { width:100%; margin-top:10px; padding:10px; font:14px/1.4 ui-monospace,monospace; }
+button { min-height:42px; padding:0 14px; justify-self:start; }
+@media(max-width:620px){.media-grid{grid-template-columns:1fr}}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy Lens browser fixture</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main>
+      <section class="sensitive-copy">
+        <h1>Episode 07 test fixture</h1>
+        <p>Release contact: backstage.release@example.com</p>
+        <p>Private line: +1 (646) 555-0186</p>
+        <p>Internal codename: Project Nightfall</p>
+        <p>api_key = fixture_key_1234567890</p>
+        <p>Authorization: Bearer fixture_token_482915</p>
+        <a id="linkedSecret" href="mailto:jo@fixture.test">Jo Lane · jo@fixture.test</a>
+        <a id="aliasSecretLink" href="mailto:classified.agent@fixture.test">Account manager</a>
+      </section>
+
+      <section class="media-grid">
+        <img id="sensitiveStill" src="assets/fixture-media.webp" alt="Synthetic visual-media test fixture">
+        <video id="sensitiveVideo" muted loop playsinline poster="assets/fixture-media.webp"><source src="assets/fixture-media.mp4" type="video/mp4"></video>
+        <img id="smallSensitiveBadge" src="assets/studio-signal.svg" alt="Small media fixture">
+      </section>
+
+      <figure class="hero-art"><img src="assets/studio-signal.svg" alt="Large vector fixture"></figure>
+
+      <section>
+        <pre><code>STREAM_API_KEY=sk-proj-1234567890abcdefghijkl
+recording_password = "FixtureOnly!48"</code></pre>
+        <input id="producerEmail" type="email" value="producer.private@example.com">
+        <textarea id="privateNote">Call +1 512-555-0122 if the feed drops.</textarea>
+        <div class="monaco-editor" contenteditable="true" role="textbox">password = keep-editor-values-untouched</div>
+      </section>
+
+      <button id="addContact" type="button">Add dynamic fixture text</button>
+      <div id="liveUpdates" aria-live="polite"></div>
+    </main>
+    <script src="fixture.js"></script>
+  </body>
+</html>

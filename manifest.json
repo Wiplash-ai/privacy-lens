@@ -1,0 +1,95 @@
+{
+  "manifest_version": 3,
+  "name": "Privacy Lens - Local Page Privacy",
+  "short_name": "Privacy Lens",
+  "version": "0.5.0",
+  "description": "Local-first page privacy: black out or blur media, redact selected secrets, protect tab titles, and optionally classify compressed images.",
+  "homepage_url": "https://labs.wiplash.ai/privacy-lens/",
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "96": "assets/icons/icon96.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "scripts": [
+      "shared/runtime-config.js",
+      "shared/settings.js",
+      "background.js"
+    ],
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Toggle Privacy Lens",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Toggle the Privacy Lens controls"
+    }
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "shared/runtime-config.js",
+        "shared/settings.js",
+        "content/matcher.js",
+        "content/privacy-engine.js",
+        "content/content-script.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/brand-mark.svg",
+        "assets/ui/*.svg"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "privacy-lens@wiplash.ai",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ],
+        "optional": [
+          "websiteContent"
+        ]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  }
+}

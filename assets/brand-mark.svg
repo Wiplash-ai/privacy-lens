@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Privacy Lens Top Secret folder</title>
+  <rect width="64" height="64" rx="8" fill="#251a0e"/>
+  <path d="M6 18h20l6-8h21a5 5 0 0 1 5 5v8H6Z" fill="#c59d61" stroke="#efd9aa" stroke-width="2"/>
+  <rect x="6" y="19" width="52" height="38" rx="3" fill="#ddbd82" stroke="#efd9aa" stroke-width="2"/>
+  <path d="M10 25h44M10 51h44" stroke="#a9824d" stroke-width="1" opacity=".75"/>
+  <g transform="rotate(-7 32 38)" fill="none" stroke="#a20f0f">
+    <rect x="9" y="28" width="46" height="19" stroke-width="3"/>
+    <rect x="12" y="31" width="40" height="13" stroke-width="1"/>
+  </g>
+  <text x="32" y="40.5" fill="#a20f0f" font-family="monospace" font-size="6" font-weight="900" letter-spacing=".1" text-anchor="middle" transform="rotate(-7 32 38)">TOP SECRET</text>
+</svg>

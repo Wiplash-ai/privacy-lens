@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Privacy Lens Settings</title>
+    <link rel="icon" href="../assets/icons/icon32.png" type="image/png">
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="https://labs.wiplash.ai/" target="_blank" rel="noreferrer">
+        <img src="../assets/brand-mark.svg" alt="">
+        <span><strong>Privacy Lens</strong><small>BROWSER PRIVACY CONTROL</small></span>
+      </a>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="pageTitle">
+        <div>
+          <p class="eyebrow">Privacy dossier / eyes only</p>
+          <h1 id="pageTitle">Classify the<br>browser.</h1>
+        </div>
+        <div class="intro-note"><span class="hero-stamp">TOP SECRET</span><p>Set the rules for what gets concealed before a screen share, recording, or shoulder-surfer gets a look.</p></div>
+      </section>
+
+      <form id="settingsForm" class="settings-panel">
+        <section class="setting-row">
+          <div><label for="defaultBlurStrength">Default blur strength</label><p>Used when a page has no remembered rule.</p></div>
+          <div class="range-setting"><input id="defaultBlurStrength" type="range" min="2" max="28" step="1"><output id="defaultBlurStrengthValue" for="defaultBlurStrength">12px</output></div>
+        </section>
+
+        <section class="setting-row">
+          <div><span class="setting-label">Image privacy</span><p>Choose what the Images control does to images, video, and embedded visual media. The same blur-strength value applies to media blur.</p></div>
+          <div class="segment" role="radiogroup" aria-label="Default image privacy treatment">
+            <label><input type="radio" name="defaultImageTreatment" value="hidden"><span>Hidden</span></label>
+            <label><input type="radio" name="defaultImageTreatment" value="blur"><span>Blur (default)</span></label>
+            <label><input type="radio" name="defaultImageTreatment" value="stamp"><span>Black + Top Secret</span></label>
+            <label><input type="radio" name="defaultImageTreatment" value="nsfw"><span>NSFW API check</span></label>
+          </div>
+        </section>
+
+        <section class="setting-row advanced-image-row">
+          <div>
+            <span class="setting-label">Advanced image screening</span>
+            <p>Optional remote classification. Privacy Lens compresses each image to a JPEG no larger than 512px, then sends only those image bytes to the configured endpoint. Page text, URL, title, and settings are not included.</p>
+            <p class="network-warning"><strong>Network disclosure:</strong> the API operator can receive the compressed image, your IP address, request timing, and any token you configure.</p>
+          </div>
+          <div class="api-settings">
+            <label class="api-enable" for="nsfwFilterEnabled"><span><strong>Enable NSFW API</strong><small>Off by default. Errors stay blacked out.</small></span><span class="toggle"><input id="nsfwFilterEnabled" type="checkbox"><span></span></span></label>
+            <label for="nsfwApiUrl"><span>Classifier endpoint</span><input class="text-input" id="nsfwApiUrl" type="url" maxlength="500" autocomplete="url" spellcheck="false"></label>
+            <label for="nsfwApiToken"><span>Bearer token <small>(optional)</small></span><input class="text-input" id="nsfwApiToken" type="password" maxlength="512" autocomplete="off" spellcheck="false" placeholder="Stored in local extension storage"></label>
+            <div class="api-actions"><button id="testNsfwApiButton" type="button">Test API</button><a href="https://labs.wiplash.ai/privacy-lens/api-docs/" target="_blank" rel="noreferrer">Read API contract</a></div>
+          </div>
+        </section>
+
+        <section class="setting-row">
+          <div><span class="setting-label">Secret text treatment</span><p>Black redaction looks like a classified document. Blur obscures each detected word while preserving its shape.</p></div>
+          <div class="segment" role="radiogroup" aria-label="Default secret text treatment">
+            <label><input type="radio" name="defaultTextTreatment" value="redact"><span>Black redaction</span></label>
+            <label><input type="radio" name="defaultTextTreatment" value="blur"><span>Blur</span></label>
+          </div>
+        </section>
+
+        <section class="setting-row redaction-rule-row">
+          <div><span class="setting-label">Detected secret types</span><p>Choose the built-in deterministic categories Privacy Lens can redact. Detection stays entirely inside the page.</p></div>
+          <div class="type-grid" aria-label="Secret types">
+            <label><input type="checkbox" data-redaction-type="email"><span>Email addresses</span></label>
+            <label><input type="checkbox" data-redaction-type="phone"><span>Phone numbers</span></label>
+            <label><input type="checkbox" data-redaction-type="api-key"><span>API keys</span></label>
+            <label><input type="checkbox" data-redaction-type="access-token"><span>Access tokens</span></label>
+            <label><input type="checkbox" data-redaction-type="credential"><span>Credential values</span></label>
+          </div>
+        </section>
+
+        <section class="setting-row custom-term-row">
+          <div><label for="customTerms">Specific words or phrases</label><p>Enter one literal term per line. Up to 50 entries are matched case-insensitively and saved without interrupting your typing.</p></div>
+          <textarea class="text-input custom-terms" id="customTerms" rows="5" maxlength="4050" placeholder="Project Nightfall&#10;Quarterly layoffs&#10;Client codename"></textarea>
+        </section>
+
+        <section class="setting-row regex-rule-row">
+          <div><span class="setting-label">Custom regex secret types</span><p>Add up to 20 advanced patterns. Each pattern runs locally on text-node slices capped at 4,096 characters. Backreferences, lookbehind, nested repetition, repeated alternation, and multiple unbounded wildcards are rejected to reduce browser lockup risk.</p></div>
+          <div class="regex-editor">
+            <div id="regexRuleList" class="regex-rule-list"></div>
+            <button id="addRegexRuleButton" class="secondary-button" type="button">Add regex type</button>
+          </div>
+        </section>
+
+        <section class="setting-row">
+          <div><span class="setting-label">Default blur treatment</span><p>Soft keeps color intact. Frosted drains color and contrast for stronger public-view concealment.</p></div>
+          <div class="segment" role="radiogroup" aria-label="Default blur treatment">
+            <label><input type="radio" name="defaultBlurTreatment" value="soft"><span>Soft focus</span></label>
+            <label><input type="radio" name="defaultBlurTreatment" value="frosted"><span>Frosted</span></label>
+          </div>
+        </section>
+
+        <section class="setting-row">
+          <div><label for="neutralTitle">Protected tab title</label><p>The neutral title shown while tab-title protection is active.</p></div>
+          <input class="text-input" id="neutralTitle" type="text" maxlength="80" autocomplete="off" spellcheck="false">
+        </section>
+
+        <section class="setting-row">
+          <div><span class="setting-label">Starting widget side</span><p>The widget remains draggable and keeps its last position until this setting changes.</p></div>
+          <div class="segment" role="radiogroup" aria-label="Starting widget side">
+            <label><input type="radio" name="widgetSide" value="left"><span>Left</span></label>
+            <label><input type="radio" name="widgetSide" value="right"><span>Right</span></label>
+          </div>
+        </section>
+
+        <section class="setting-row">
+          <div><label for="resetOnClose">Restore page when the widget closes</label><p>Immediately removes every active Privacy Lens layer when you dismiss the controller.</p></div>
+          <label class="toggle"><input id="resetOnClose" type="checkbox"><span></span></label>
+        </section>
+      </form>
+
+      <section class="tab-privacy" aria-labelledby="tabPrivacyTitle">
+        <header>
+          <div><p class="eyebrow">This browser session</p><h2 id="tabPrivacyTitle">Classified tab titles</h2><p>Select ordinary webpage tabs individually, or mark every accessible tab “Top Secret.” The same selector now lives in the page widget.</p></div>
+          <div class="tab-actions">
+            <button id="refreshTabsButton" type="button">Refresh tabs</button>
+            <label class="all-tabs-toggle" for="allTabsTitle"><span>Protect all tabs</span><span class="toggle"><input id="allTabsTitle" type="checkbox"><span></span></span></label>
+          </div>
+        </header>
+        <p class="browser-api-note">Uses the browser’s built-in tabs extension API locally. It does not call a web API or transmit tab titles.</p>
+        <div id="tabList" class="tab-list" aria-live="polite"></div>
+      </section>
+
+      <section class="site-rules" aria-labelledby="siteRulesTitle">
+        <header>
+          <div><p class="eyebrow">Remembered sites</p><h2 id="siteRulesTitle">Saved local rules</h2></div>
+          <button id="clearSitesButton" type="button">Clear site rules</button>
+        </header>
+        <div id="siteRuleList" class="site-rule-list"></div>
+      </section>
+
+      <section class="privacy-strip">
+        <div><strong>Local first. Remote only by choice.</strong><p>No analytics, accounts, page-text uploads, or browsing-history sync. The optional NSFW mode sends compressed images only to the endpoint you configure.</p></div>
+        <button id="resetSettingsButton" type="button">Reset all settings</button>
+      </section>
+    </main>
+
+    <footer><span>Open source under the MIT License</span><a href="https://wiplash.ai/" target="_blank" rel="noreferrer">Produced by Wiplash.ai</a></footer>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="../shared/runtime-config.js"></script>
+    <script src="../shared/settings.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>
