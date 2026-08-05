@@ -4,9 +4,11 @@ import { createRuntime, waitForMutations } from "./helpers.mjs";
 
 const fixture = `<!doctype html><html><head><title>Original private title</title></head><body>
   <p id="copy">Email guest@example.com or call 512-555-0198.</p>
-  <a id="secretLink" href="mailto:linked@example.com">Email linked@example.com</a>
-  <a id="aliasLink" href="mailto:hidden@example.com">Account manager</a>
-  <a id="regularLink" href="https://example.com/about">About this demo</a>
+  <a id="secretLink" href="mailto:linked@example.com" title="Email linked@example.com">Email linked@example.com</a>
+  <a id="aliasLink" href="mailto:hidden@example.com" aria-label="Account manager">Account manager</a>
+  <a id="regularLink" href="https://example.com/r/1vf0f3q_xpost_hi_im_jonathan_former_airtable_fde_nice_to/" title="About this demo">About this demo</a>
+  <a id="customLink" href="https://example.com/ai" title="Read AI workflows">Explore AI workflows</a>
+  <span id="roleLink" role="link" tabindex="0" aria-label="Open AI briefing">AI briefing</span>
   <pre><code id="staticCode">api_key=fixture-secret-12345</code></pre>
   <input id="email" value="form@example.com">
   <textarea id="note">Call 512-555-0111</textarea>
@@ -26,19 +28,51 @@ test("masking is reversible and excludes controls and code editors", async () =>
   assert.doesNotMatch(dom.window.document.getElementById("secretLink").textContent, /linked@example\.com/);
   assert.doesNotMatch(dom.window.document.getElementById("aliasLink").textContent, /Account manager/);
   assert.equal(dom.window.document.getElementById("regularLink").textContent, "About this demo");
+  assert.equal(dom.window.document.getElementById("regularLink").getAttribute("title"), "About this demo");
   assert.equal(dom.window.document.getElementById("secretLink").getAttribute("href"), "mailto:linked@example.com");
   assert.equal(dom.window.document.getElementById("aliasLink").getAttribute("href"), "mailto:hidden@example.com");
+  assert.doesNotMatch(dom.window.document.getElementById("secretLink").getAttribute("title"), /linked@example\.com/);
+  assert.doesNotMatch(dom.window.document.getElementById("aliasLink").getAttribute("aria-label"), /Account manager/);
   assert.equal(dom.window.document.getElementById("email").value, "form@example.com");
   assert.match(dom.window.document.getElementById("note").value, /512-555-0111/);
   assert.match(dom.window.document.getElementById("editable").textContent, /editable-secret/);
   assert.match(dom.window.document.getElementById("editor").textContent, /editor-secret/);
-  assert.equal(engine.getState().maskCount, 5);
+  assert.equal(engine.getState().maskCount, 7);
 
   engine.reset();
   assert.match(dom.window.document.getElementById("copy").textContent, /guest@example\.com/);
   assert.match(dom.window.document.getElementById("staticCode").textContent, /fixture-secret-12345/);
   assert.match(dom.window.document.getElementById("secretLink").textContent, /linked@example\.com/);
   assert.equal(dom.window.document.getElementById("aliasLink").textContent, "Account manager");
+  assert.equal(dom.window.document.getElementById("secretLink").getAttribute("title"), "Email linked@example.com");
+  assert.equal(dom.window.document.getElementById("aliasLink").getAttribute("aria-label"), "Account manager");
+  dom.window.close();
+});
+
+test("custom terms redact only exact words in link names and titles", async () => {
+  const dom = await createRuntime(fixture);
+  const engine = new dom.window.PrivacyLens.PrivacyEngine(dom.window.document, {
+    redactionOptions: {
+      enabledTypes: { email: false, phone: false, "api-key": false, "access-token": false, credential: false },
+      customTerms: ["AI"]
+    }
+  });
+
+  engine.applyState({ sensitiveMasked: true });
+  const customLink = dom.window.document.getElementById("customLink");
+  assert.equal(customLink.textContent, "Explore ██ workflows");
+  assert.equal(customLink.getAttribute("title"), "Read ██ workflows");
+  assert.equal(dom.window.document.getElementById("roleLink").textContent, "██ briefing");
+  assert.equal(dom.window.document.getElementById("roleLink").getAttribute("aria-label"), "Open ██ briefing");
+  assert.equal(dom.window.document.getElementById("regularLink").textContent, "About this demo");
+  assert.equal(dom.window.document.getElementById("regularLink").getAttribute("title"), "About this demo");
+  assert.equal(engine.getState().maskCount, 4);
+
+  engine.reset();
+  assert.equal(customLink.textContent, "Explore AI workflows");
+  assert.equal(customLink.getAttribute("title"), "Read AI workflows");
+  assert.equal(dom.window.document.getElementById("roleLink").textContent, "AI briefing");
+  assert.equal(dom.window.document.getElementById("roleLink").getAttribute("aria-label"), "Open AI briefing");
   dom.window.close();
 });
 

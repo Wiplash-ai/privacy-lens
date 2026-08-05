@@ -64,18 +64,21 @@
         </section>
 
         <section class="setting-row redaction-rule-row">
-          <div><span class="setting-label">Detected secret types</span><p>Choose the built-in deterministic categories Privacy Lens can redact. Detection stays entirely inside the page.</p></div>
-          <div class="type-grid" aria-label="Secret types">
-            <label><input type="checkbox" data-redaction-type="email"><span>Email addresses</span></label>
-            <label><input type="checkbox" data-redaction-type="phone"><span>Phone numbers</span></label>
-            <label><input type="checkbox" data-redaction-type="api-key"><span>API keys</span></label>
-            <label><input type="checkbox" data-redaction-type="access-token"><span>Access tokens</span></label>
-            <label><input type="checkbox" data-redaction-type="credential"><span>Credential values</span></label>
+          <div><span class="setting-label">Detected secret types</span><p>No special labels or AI guesses. These built-in rules recognize exact formats such as email addresses, phone numbers, and credential values.</p></div>
+          <div>
+            <div class="type-grid" aria-label="Secret types">
+              <label><input type="checkbox" data-redaction-type="email"><span>Email addresses</span></label>
+              <label><input type="checkbox" data-redaction-type="phone"><span>Phone numbers</span></label>
+              <label><input type="checkbox" data-redaction-type="api-key"><span>API keys</span></label>
+              <label><input type="checkbox" data-redaction-type="access-token"><span>Access tokens</span></label>
+              <label><input type="checkbox" data-redaction-type="credential"><span>Credential values</span></label>
+            </div>
+            <p>Want only your own list? Turn off every built-in type. Privacy Lens will then match only the words, phrases, and regex rules you add below.</p>
           </div>
         </section>
 
         <section class="setting-row custom-term-row">
-          <div><label for="customTerms">Specific words or phrases</label><p>Enter one literal term per line. Up to 50 entries are matched case-insensitively and saved without interrupting your typing.</p></div>
+          <div><label for="customTerms">Specific words or phrases</label><p>Enter one literal term per line. Matching is case-insensitive and exact: adding “AI” hides every standalone “AI,” including inside visible link names, but leaves the rest of the sentence alone.</p></div>
           <textarea class="text-input custom-terms" id="customTerms" rows="5" maxlength="4050" placeholder="Project Nightfall&#10;Quarterly layoffs&#10;Client codename"></textarea>
         </section>
 

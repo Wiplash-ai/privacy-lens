@@ -46,10 +46,13 @@
       this.onCountChange = onCountChange;
       this.enabled = false;
       this.count = 0;
+      this.textCount = 0;
+      this.attributeCount = 0;
       this.observer = null;
       this.scanQueued = false;
       this.originals = new WeakMap();
       this.maskedNodes = new Set();
+      this.maskedAttributes = new Map();
       const windowValue = this.document.defaultView || root;
       this.highlightRegistry = windowValue.CSS && windowValue.CSS.highlights;
       this.HighlightClass = windowValue.Highlight || root.Highlight;
@@ -129,6 +132,8 @@
       this.observer.observe(this.document.documentElement, {
         childList: true,
         characterData: true,
+        attributes: true,
+        attributeFilter: ["href", "title", "aria-label"],
         subtree: true
       });
     }
@@ -144,6 +149,7 @@
       const nodes = this.collectEligibleTextNodes();
       if (this.usesHighlights) this.applyHighlights(nodes);
       else this.applyFallback(nodes);
+      this.maskLinkAttributes();
     }
 
     queueScan() {
@@ -182,22 +188,23 @@
 
     collectNodeMatches(node) {
       if (!node?.data) return [];
+      const matches = this.matcher.collectMatches(node.data, this.matchOptions);
+      if (matches.length) return matches;
       const anchor = node.parentElement?.closest("a[href]");
-      if (anchor && this.isSensitiveLink(anchor)) {
+      if (anchor && this.isSensitiveDestination(anchor)) {
         const start = node.data.search(/\S/);
         if (start < 0) return [];
         const end = node.data.search(/\s*$/);
         return [{ start, end, type: "link" }];
       }
-      return this.matcher.collectMatches(node.data, this.matchOptions);
+      return [];
     }
 
-    isSensitiveLink(anchor) {
-      const href = anchor.getAttribute("href") || "";
-      const decodedHref = safeDecodeURIComponent(href);
-      return /^(?:mailto|tel):/i.test(href)
-        || this.matcher.collectMatches(decodedHref, this.matchOptions).length > 0
-        || this.matcher.collectMatches(anchor.textContent || "", this.matchOptions).length > 0;
+    isSensitiveDestination(anchor) {
+      const href = (anchor.getAttribute("href") || "").trim();
+      if (/^mailto:/i.test(href)) return this.matchOptions.enabledTypes?.email !== false;
+      if (/^tel:/i.test(href)) return this.matchOptions.enabledTypes?.phone !== false;
+      return false;
     }
 
     applyHighlights(nodes) {
@@ -215,7 +222,7 @@
 
       this.highlightRegistry.delete(MASK_NAME);
       if (ranges.length) this.highlightRegistry.set(MASK_NAME, new this.HighlightClass(...ranges));
-      this.setCount(count);
+      this.setTextCount(count);
     }
 
     applyFallback(nodes) {
@@ -234,6 +241,14 @@
 
     handleFallbackMutations(mutations) {
       mutations.forEach((mutation) => {
+        if (mutation.type === "attributes") {
+          if (mutation.attributeName === "href") {
+            this.restoreFallbackSubtree(mutation.target);
+            this.collectEligibleTextNodes(mutation.target).forEach((textNode) => this.maskFallbackNode(textNode));
+          }
+          return;
+        }
+
         if (mutation.type === "characterData") {
           const node = mutation.target;
           const record = this.originals.get(node);
@@ -246,7 +261,10 @@
           return;
         }
 
-        mutation.removedNodes.forEach((node) => this.restoreFallbackSubtree(node));
+        mutation.removedNodes.forEach((node) => {
+          this.restoreFallbackSubtree(node);
+          this.restoreAttributeSubtree(node);
+        });
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === 3 && this.isEligibleTextNode(node)) {
             this.maskFallbackNode(node);
@@ -256,6 +274,7 @@
         });
       });
       this.recountFallback();
+      this.maskLinkAttributes();
     }
 
     restoreFallbackSubtree(node) {
@@ -301,7 +320,79 @@
         }
         count += record.count;
       });
-      this.setCount(count);
+      this.setTextCount(count);
+    }
+
+    maskLinkAttributes() {
+      if (!this.enabled) return;
+      const seen = new Map();
+      let count = 0;
+
+      this.document.querySelectorAll("a[title], a[aria-label], [role='link'][title], [role='link'][aria-label]").forEach((anchor) => {
+        ["title", "aria-label"].forEach((attributeName) => {
+          if (!anchor.hasAttribute(attributeName)) return;
+          let seenAttributes = seen.get(anchor);
+          if (!seenAttributes) {
+            seenAttributes = new Set();
+            seen.set(anchor, seenAttributes);
+          }
+          seenAttributes.add(attributeName);
+
+          const records = this.maskedAttributes.get(anchor);
+          const existing = records?.get(attributeName);
+          const current = anchor.getAttribute(attributeName) || "";
+          const source = existing && current === existing.masked ? existing.original : current;
+          let matches = this.matcher.collectMatches(source, this.matchOptions);
+          if (!matches.length && this.isSensitiveDestination(anchor)) {
+            const start = source.search(/\S/);
+            if (start >= 0) matches = [{ start, end: source.search(/\s*$/), type: "link" }];
+          }
+
+          if (!matches.length) {
+            if (existing) this.restoreMaskedAttribute(anchor, attributeName, existing);
+            return;
+          }
+
+          const masked = this.matcher.maskText(source, matches, this.treatment);
+          let nextRecords = this.maskedAttributes.get(anchor);
+          if (!nextRecords) {
+            nextRecords = new Map();
+            this.maskedAttributes.set(anchor, nextRecords);
+          }
+          nextRecords.set(attributeName, { original: source, masked, count: matches.length });
+          if (current !== masked) anchor.setAttribute(attributeName, masked);
+          count += matches.length;
+        });
+      });
+
+      this.maskedAttributes.forEach((records, element) => {
+        records.forEach((record, attributeName) => {
+          if (seen.get(element)?.has(attributeName)) return;
+          this.restoreMaskedAttribute(element, attributeName, record);
+        });
+        if (!records.size) this.maskedAttributes.delete(element);
+      });
+      this.setAttributeCount(count);
+    }
+
+    restoreAttributeSubtree(node) {
+      if (!node || node.nodeType !== 1) return;
+      this.maskedAttributes.forEach((records, element) => {
+        if (element !== node && !node.contains(element)) return;
+        records.forEach((record, attributeName) => {
+          this.restoreMaskedAttribute(element, attributeName, record);
+        });
+        this.maskedAttributes.delete(element);
+      });
+    }
+
+    restoreMaskedAttribute(element, attributeName, record) {
+      if (element.getAttribute(attributeName) === record.masked) {
+        element.setAttribute(attributeName, record.original);
+      }
+      const records = this.maskedAttributes.get(element);
+      records?.delete(attributeName);
+      if (records && !records.size) this.maskedAttributes.delete(element);
     }
 
     clear() {
@@ -315,22 +406,33 @@
         this.restoreFallbackNode(node);
       });
       this.maskedNodes.clear();
-      this.setCount(0);
+      this.maskedAttributes.forEach((records, element) => {
+        records.forEach((record, attributeName) => {
+          if (element.getAttribute(attributeName) === record.masked) {
+            element.setAttribute(attributeName, record.original);
+          }
+        });
+      });
+      this.maskedAttributes.clear();
+      this.setTextCount(0);
+      this.setAttributeCount(0);
     }
 
-    setCount(value) {
-      const count = Number.isFinite(value) ? value : 0;
+    setTextCount(value) {
+      this.textCount = Number.isFinite(value) ? value : 0;
+      this.syncCount();
+    }
+
+    setAttributeCount(value) {
+      this.attributeCount = Number.isFinite(value) ? value : 0;
+      this.syncCount();
+    }
+
+    syncCount() {
+      const count = this.textCount + this.attributeCount;
       if (count === this.count) return;
       this.count = count;
       this.onCountChange(count);
-    }
-  }
-
-  function safeDecodeURIComponent(value) {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
     }
   }
 
