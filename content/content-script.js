@@ -204,7 +204,6 @@
             <div class="treatment-selector" role="group" aria-label="Image privacy treatment">
               <button type="button" data-image-treatment="hidden">Hidden</button>
               <button type="button" data-image-treatment="blur">Blur</button>
-              <button type="button" data-image-treatment="stamp">Black + stamp</button>
               <button type="button" data-image-treatment="nsfw">NSFW check</button>
             </div>
           </div>
@@ -258,7 +257,7 @@
       { imagesProtected: !state.imagesProtected },
       state.imagesProtected
         ? "Images and video revealed"
-        : `Visual media ${{ hidden: "hidden", stamp: "blacked out and stamped", blur: "blurred", nsfw: "checking remotely" }[state.imageTreatment]}`
+        : `Visual media ${{ hidden: "hidden", blur: "blurred", nsfw: "checking remotely" }[state.imageTreatment]}`
     ));
     getWidgetElement("blurButton").addEventListener("click", () => updateState({ blurEnabled: !state.blurEnabled }, state.blurEnabled ? "Page blur removed" : "Page blurred"));
     getWidgetElement("maskButton").addEventListener("click", () => updateState(
@@ -419,7 +418,7 @@
       state.imagesProtected,
       "imagesState",
       state.imagesProtected
-        ? ({ hidden: "Hidden", stamp: "Black + stamp", blur: `${state.blurStrength}px`, nsfw: "NSFW check" })[state.imageTreatment]
+        ? ({ hidden: "Hidden", blur: `${state.blurStrength}px`, nsfw: "NSFW check" })[state.imageTreatment]
         : "Shown"
     );
     renderToggle("blurButton", state.blurEnabled, "blurState", state.blurEnabled ? `${state.blurStrength}px` : "Off");
@@ -852,7 +851,7 @@
       .detail-heading output, .detection-row strong { color: #9b0d0d; font-family: "Courier New", Courier, monospace; }
       input[type="range"] { accent-color: #a20f0f; }
       .treatment-selector button { color: #655036; border-color: #9e8056; border-radius: 2px; background: #e7d2aa; }
-      .treatment-selector[aria-label="Image privacy treatment"] { grid-template-columns: repeat(2, 1fr); }
+      .treatment-selector[aria-label="Image privacy treatment"] { grid-template-columns: repeat(3, 1fr); }
       .treatment-selector button.is-active { color: #f9eacc; border-color: #8e0c0c; background: #9d0f0f; }
       .treatment-selector button:disabled { color: #8b7557; border-color: #b29a74; background: rgba(198,168,115,.4); cursor: not-allowed; opacity: .72; }
       .remember-row, .widget-all-tabs { border-bottom-color: rgba(111,79,38,.25); }

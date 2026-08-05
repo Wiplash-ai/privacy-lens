@@ -66,6 +66,13 @@ test("settings storage persists sanitized local preferences and site rules", asy
   assert.equal(saved.savedSites["example.com"].sensitiveMasked, true);
   assert.equal(saved.savedSites["example.com"].imageTreatment, "blur");
 
+  const migratedStamp = Settings.sanitizeSettings({
+    defaultImageTreatment: "stamp",
+    savedSites: { "legacy.example": { imagesProtected: true, imageTreatment: "stamp" } }
+  });
+  assert.equal(migratedStamp.defaultImageTreatment, "blur");
+  assert.equal(migratedStamp.savedSites["legacy.example"].imageTreatment, "blur");
+
   const reloaded = await store.get();
   assert.equal(reloaded.defaultBlurTreatment, "frosted");
   assert.ok(area.snapshot()[Settings.SETTINGS_KEY]);
@@ -92,7 +99,7 @@ test("legacy shipped title migrates while customized titles remain intact", asyn
   });
   const legacy = await Settings.createStore(legacyArea).get();
   assert.equal(legacy.neutralTitle, "Top Secret");
-  assert.equal(legacy.schemaVersion, 4);
+  assert.equal(legacy.schemaVersion, Settings.SETTINGS_SCHEMA_VERSION);
 
   const customArea = createMemoryStorage({
     [Settings.SETTINGS_KEY]: { neutralTitle: "Board Meeting" }

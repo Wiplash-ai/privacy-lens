@@ -119,7 +119,7 @@ test("detached fallback nodes are restored before page code can reuse them", asy
   dom.window.close();
 });
 
-test("image privacy supports shared-strength blur, hidden, and stamp treatments", async () => {
+test("image privacy supports shared-strength blur and hidden treatments", async () => {
   const dom = await createRuntime(fixture);
   const root = dom.window.document.documentElement;
   root.style.filter = "contrast(1.1)";
@@ -133,11 +133,6 @@ test("image privacy supports shared-strength blur, hidden, and stamp treatments"
   assert.equal(root.classList.contains("privacy-lens-private-images-hidden"), true);
   assert.equal(root.classList.contains("privacy-lens-private-images-blurred"), false);
 
-  engine.applyState({ imagesProtected: true, imageTreatment: "stamp", blurStrength: 17 });
-  assert.equal(root.classList.contains("privacy-lens-private-images-stamped"), true);
-  assert.ok(dom.window.document.getElementById("privacy-lens-media-stamps"));
-  assert.match(engine.styleElement.textContent, /brightness\(0\) grayscale\(1\)/);
-
   engine.applyState({ imagesProtected: true, imageTreatment: "hidden", blurEnabled: true, blurStrength: 17, blurTreatment: "frosted" });
   assert.equal(root.classList.contains("privacy-lens-private-blur-frosted"), true);
   assert.match(engine.styleElement.textContent, /grayscale\(1\).*contrast\(\.58\)/s);
@@ -147,7 +142,6 @@ test("image privacy supports shared-strength blur, hidden, and stamp treatments"
   assert.equal([...root.classList].some((name) => name.startsWith("privacy-lens-private-")), false);
   assert.equal(root.style.getPropertyValue("--privacy-lens-private-blur"), "");
   assert.equal(root.style.filter, "contrast(1.1)");
-  assert.equal(dom.window.document.getElementById("privacy-lens-media-stamps"), null);
   dom.window.close();
 });
 

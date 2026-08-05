@@ -27,7 +27,7 @@ flowchart LR
 | --- | --- | --- |
 | `shared/settings.js` | Schema, migrations, bounds, URL and regex validation | Browser local/session storage |
 | `content/matcher.js` | Built-in, literal, and bounded regex matching | No persisted data |
-| `content/privacy-engine.js` | Reversible effects, media stamps, verdict states, title restoration | Per-page state only |
+| `content/privacy-engine.js` | Reversible effects, image verdict states, title restoration | Per-page state only |
 | `content/content-script.js` | Draggable widget and runtime message handling | Per-frame UI state |
 | `background.js` | Toolbar action, title sessions, and optional classifier port | Session tab IDs |
 | `options/` | Preferences, regex editor, site rules, and tab selector | Draft form state |

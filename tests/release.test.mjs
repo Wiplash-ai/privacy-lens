@@ -58,7 +58,6 @@ test("documentation explains permissions, local-first processing, restoration, r
   assert.match(readme, /built-in `tabs`/);
   assert.match(readme, /disabled by default/i);
   assert.match(readme, /compressed image/i);
-  assert.match(readme, /Top Secret stamp/i);
   assert.match(readme, /custom\s+regex/i);
   assert.match(readme, /restore/i);
   assert.match(privacy, /page text/i);
@@ -66,6 +65,17 @@ test("documentation explains permissions, local-first processing, restoration, r
   assert.match(listing, /Permission justification/);
   assert.match(listing, /optional/i);
   await access(path.join(root, "docs/ARCHITECTURE.md"));
+});
+
+test("removed image stamp treatment is absent from user surfaces and runtime", async () => {
+  const files = [
+    "shared/settings.js",
+    "content/privacy-engine.js",
+    "content/content-script.js",
+    "options/options.html"
+  ];
+  const source = (await Promise.all(files.map((file) => readFile(path.join(root, file), "utf8")))).join("\n");
+  assert.doesNotMatch(source, /imageTreatment\s*===\s*["']stamp["']|value=["']stamp["']|data-image-treatment=["']stamp["']|MediaStamper/);
 });
 
 test("browser builds contain correct background formats and bundled icons", async () => {

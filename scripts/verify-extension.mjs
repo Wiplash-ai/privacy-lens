@@ -108,27 +108,6 @@ try {
   assert.equal(await page.locator("#sensitiveStill").evaluate((element) => getComputedStyle(element).visibility), "hidden");
   assert.equal(await page.locator("#sensitiveVideo").evaluate((element) => getComputedStyle(element).visibility), "hidden");
 
-  const stampResponse = await sendToTopFrame(worker, tabId, {
-    type: "PRIVACY_LENS_APPLY_STATE",
-    state: { ...mediaBlurState, imageTreatment: "stamp", sensitiveMasked: false },
-    neutralTitle: "Top Secret"
-  });
-  assert.equal(stampResponse.ok, true);
-  await page.waitForFunction(() => Number(document.getElementById("privacy-lens-media-stamps")?.dataset.stampCount || 0) >= 2);
-  assert.equal(await page.locator("html").evaluate((element) => element.classList.contains("privacy-lens-private-images-stamped")), true);
-  assert.match(await page.locator("#sensitiveStill").evaluate((element) => getComputedStyle(element).filter), /brightness\(0\)/);
-  assert.match(await page.locator("#smallSensitiveBadge").evaluate((element) => getComputedStyle(element).filter), /brightness\(0\)/);
-  const stampRects = await page.locator("#privacy-lens-media-stamps").evaluate((host) => [...host.shadowRoot.querySelectorAll(".stamp")].map((stamp) => ({
-    background: getComputedStyle(stamp).backgroundColor,
-    height: stamp.getBoundingClientRect().height,
-    width: stamp.getBoundingClientRect().width,
-    x: Math.round(stamp.getBoundingClientRect().x),
-    y: Math.round(stamp.getBoundingClientRect().y)
-  })));
-  assert.ok(stampRects.every((rect) => rect.width >= 140 && rect.background === "rgb(5, 4, 3)"), "Each large-media stamp should be one opaque black replacement");
-  assert.equal(new Set(stampRects.map((rect) => `${rect.x}:${rect.y}:${Math.round(rect.width)}:${Math.round(rect.height)}`)).size, stampRects.length, "A media rectangle must not receive duplicate stamps");
-  await page.screenshot({ path: path.join(screenshotRoot, "media-top-secret-stamps.png"), fullPage: false });
-
   const nsfwResponse = await sendToTopFrame(worker, tabId, {
     type: "PRIVACY_LENS_APPLY_STATE",
     state: { ...mediaBlurState, imageTreatment: "nsfw", sensitiveMasked: false },
@@ -341,7 +320,7 @@ try {
   });
   await secondPage.close();
 
-  console.log("Verified real MV3 runtime: distinct blur treatments, media blur/hidden/blackout stamps/opt-in NSFW API, linked document redaction/blur, stable phrase editing, custom regex, widget tab dropdown, selected/all-tab titles, title restoration, dynamic DOM, form/editor exclusions, desktop, and mobile layout.");
+  console.log("Verified real MV3 runtime: distinct blur treatments, media blur/hidden/opt-in NSFW API, linked document redaction/blur, stable phrase editing, custom regex, widget tab dropdown, selected/all-tab titles, title restoration, dynamic DOM, form/editor exclusions, desktop, and mobile layout.");
   console.log(`Review screenshots: ${path.relative(root, screenshotRoot)}/`);
 } finally {
   await context.close();

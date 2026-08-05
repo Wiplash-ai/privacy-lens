@@ -204,8 +204,7 @@ body { font-size: 16px; }
 .setting-row p { font-size: 15px; line-height: 1.62; }
 .range-setting output { font-size: 15px; }
 .segment span { min-height: 48px; font-size: 14px; }
-.segment[aria-label="Default image privacy treatment"] { flex-wrap: wrap; }
-.segment[aria-label="Default image privacy treatment"] label { flex: 1 0 50%; }
+.segment[aria-label="Default image privacy treatment"] label { flex: 1 1 33.333%; }
 .segment input:disabled + span { color: #8a7659; background: rgba(185,153,101,.35); cursor: not-allowed; }
 .text-input { min-height: 47px; font-size: 15px; }
 .custom-terms { min-height: 142px; font-size: 15px; line-height: 1.6; }

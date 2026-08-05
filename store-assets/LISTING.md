@@ -2,14 +2,14 @@
 
 ## Short description
 
-Black out, blur, or hide media; protect selected tab titles; redact chosen
+Blur or hide media; protect selected tab titles; redact chosen
 secrets locally; and optionally screen compressed images with your API.
 
 ## Full description
 
 Privacy Lens adds a compact, draggable privacy controller to ordinary webpages.
 Use it before a screen share, recording, public presentation, or shoulder-surf
-risk to black out and stamp, blur, or hide images/video, apply adjustable page blur, replace
+risk to blur or hide images/video, apply adjustable page blur, replace
 revealing selected or all tab titles with “Top Secret,” and conceal emails,
 phone numbers, API/access tokens, credential values, or chosen literal terms.
 

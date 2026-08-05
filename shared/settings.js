@@ -5,7 +5,7 @@
   root.PrivacyLens ||= {};
 
   const SETTINGS_KEY = "privacyLensSettings";
-  const SETTINGS_SCHEMA_VERSION = 4;
+  const SETTINGS_SCHEMA_VERSION = 5;
   const MAX_SAVED_SITES = 100;
   const MAX_CUSTOM_TERMS = 50;
   const MAX_CUSTOM_REGEX_RULES = 20;
@@ -98,7 +98,7 @@
 
     return {
       imagesProtected: source.imagesProtected === true || source.imagesHidden === true,
-      imageTreatment: ["blur", "hidden", "stamp", "nsfw"].includes(source.imageTreatment)
+      imageTreatment: ["blur", "hidden", "nsfw"].includes(source.imageTreatment)
         ? source.imageTreatment
         : source.imagesHidden === true
           ? "hidden"
@@ -191,7 +191,7 @@
   }
 
   function sanitizeImageTreatment(value) {
-    return ["hidden", "stamp", "nsfw"].includes(value) ? value : "blur";
+    return ["hidden", "nsfw"].includes(value) ? value : "blur";
   }
 
   function sanitizeTextTreatment(value) {

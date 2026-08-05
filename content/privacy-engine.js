@@ -9,15 +9,11 @@
   const BLUR_PROPERTY = "--privacy-lens-private-blur";
   const CLASS_IMAGES_HIDDEN = "privacy-lens-private-images-hidden";
   const CLASS_IMAGES_BLURRED = "privacy-lens-private-images-blurred";
-  const CLASS_IMAGES_STAMPED = "privacy-lens-private-images-stamped";
   const CLASS_IMAGES_NSFW = "privacy-lens-private-images-nsfw";
   const CLASS_TEXT_REDACTED = "privacy-lens-private-text-redacted";
   const CLASS_TEXT_BLURRED = "privacy-lens-private-text-blurred";
   const CLASS_SOFT = "privacy-lens-private-blur-soft";
   const CLASS_FROSTED = "privacy-lens-private-blur-frosted";
-  const STAMP_HOST_ID = "privacy-lens-media-stamps";
-  const MEDIA_SELECTOR = "img, video, svg, canvas, iframe, input[type='image'], object[type^='image'], embed[type^='image']";
-  const STAMP_SELECTOR = "img, video, svg, canvas, input[type='image'], object[type^='image'], embed[type^='image']";
   const SKIP_SELECTOR = [
     "script",
     "style",
@@ -436,207 +432,6 @@
     }
   }
 
-  class MediaStamper {
-    constructor(documentValue) {
-      this.document = documentValue;
-      this.view = documentValue.defaultView || root;
-      this.enabled = false;
-      this.host = null;
-      this.layer = null;
-      this.stamps = new Map();
-      this.observedMedia = new Set();
-      this.frame = 0;
-      this.updateBound = () => this.queueUpdate();
-      this.ResizeObserverClass = this.view.ResizeObserver;
-      this.MutationObserverClass = this.view.MutationObserver;
-      this.resizeObserver = this.ResizeObserverClass
-        ? new this.ResizeObserverClass(this.updateBound)
-        : null;
-      this.mutationObserver = null;
-    }
-
-    setEnabled(value) {
-      const next = value === true;
-      if (next === this.enabled) {
-        if (next) this.queueUpdate();
-        return;
-      }
-      this.enabled = next;
-      if (next) this.start();
-      else this.stop();
-    }
-
-    start() {
-      if (!this.host) this.createHost();
-      this.view.addEventListener("scroll", this.updateBound, { capture: true, passive: true });
-      this.view.addEventListener("resize", this.updateBound, { passive: true });
-      const body = this.document.body || this.document.documentElement;
-      if (this.MutationObserverClass && body) {
-        this.mutationObserver = new this.MutationObserverClass(this.updateBound);
-        this.mutationObserver.observe(body, {
-          childList: true,
-          attributes: true,
-          subtree: true,
-          attributeFilter: ["class", "style", "src", "hidden"]
-        });
-      }
-      this.queueUpdate();
-    }
-
-    createHost() {
-      const existing = this.document.getElementById(STAMP_HOST_ID);
-      if (existing) existing.remove();
-      this.host = this.document.createElement("div");
-      this.host.id = STAMP_HOST_ID;
-      this.host.dataset.privacyLensOwned = "true";
-      this.host.dataset.stampCount = "0";
-      this.host.setAttribute("aria-hidden", "true");
-      Object.assign(this.host.style, {
-        position: "fixed",
-        inset: "0",
-        zIndex: "2147483645",
-        overflow: "hidden",
-        pointerEvents: "none"
-      });
-      const shadow = this.host.attachShadow({ mode: "open" });
-      const style = this.document.createElement("style");
-      style.textContent = `
-        :host { all: initial; }
-        *, *::before, *::after { box-sizing: border-box; }
-        .layer { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
-        .stamp {
-          position: fixed;
-          display: grid;
-          place-items: center;
-          overflow: hidden;
-          background: #050403;
-          box-shadow: inset 0 0 0 1px rgba(194, 165, 111, .18);
-          contain: strict;
-        }
-        .stamp > span {
-          max-width: 88%;
-          padding: .18em .38em .12em;
-          color: #a20f0f;
-          border: .13em solid currentColor;
-          box-shadow: inset 0 0 0 .045em currentColor, 0 1px 0 rgba(255,255,255,.25);
-          background: #d5ba84;
-          font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
-          font-size: var(--stamp-size, 20px);
-          line-height: .92;
-          letter-spacing: .08em;
-          text-align: center;
-          text-transform: uppercase;
-          white-space: nowrap;
-          transform: rotate(-11deg);
-          opacity: .94;
-          mix-blend-mode: normal;
-        }
-      `;
-      this.layer = this.document.createElement("div");
-      this.layer.className = "layer";
-      shadow.append(style, this.layer);
-      this.document.documentElement.appendChild(this.host);
-    }
-
-    queueUpdate() {
-      if (!this.enabled || this.frame) return;
-      const request = typeof this.view.requestAnimationFrame === "function"
-        ? this.view.requestAnimationFrame.bind(this.view)
-        : (callback) => this.view.setTimeout(callback, 0);
-      this.frame = request(() => {
-        this.frame = 0;
-        this.update();
-      });
-    }
-
-    update() {
-      if (!this.enabled || !this.layer || !this.host) return;
-      const seenRects = new Set();
-      const candidates = [...this.document.querySelectorAll(STAMP_SELECTOR)]
-        .filter((element) => this.shouldStamp(element))
-        .filter((element) => {
-          const rect = element.getBoundingClientRect();
-          const key = [rect.left, rect.top, rect.right, rect.bottom]
-            .map((value) => Math.round(value / 2) * 2)
-            .join(":");
-          if (seenRects.has(key)) return false;
-          seenRects.add(key);
-          return true;
-        });
-      const active = new Set(candidates);
-
-      this.stamps.forEach((stamp, element) => {
-        if (active.has(element)) return;
-        stamp.remove();
-        this.stamps.delete(element);
-      });
-
-      candidates.forEach((element) => {
-        let stamp = this.stamps.get(element);
-        if (!stamp) {
-          stamp = this.document.createElement("div");
-          stamp.className = "stamp";
-          const label = this.document.createElement("span");
-          label.textContent = "TOP SECRET";
-          stamp.appendChild(label);
-          this.layer.appendChild(stamp);
-          this.stamps.set(element, stamp);
-        }
-        const rect = element.getBoundingClientRect();
-        stamp.style.left = `${Math.max(0, rect.left)}px`;
-        stamp.style.top = `${Math.max(0, rect.top)}px`;
-        stamp.style.width = `${Math.max(0, Math.min(rect.right, this.view.innerWidth) - Math.max(0, rect.left))}px`;
-        stamp.style.height = `${Math.max(0, Math.min(rect.bottom, this.view.innerHeight) - Math.max(0, rect.top))}px`;
-        stamp.style.setProperty("--stamp-size", `${Math.round(Math.min(28, Math.max(11, rect.width / 8)))}px`);
-      });
-
-      this.syncResizeObservers(active);
-      this.host.dataset.stampCount = String(this.stamps.size);
-    }
-
-    shouldStamp(element) {
-      if (!element.isConnected || typeof element.getBoundingClientRect !== "function") return false;
-      const rect = element.getBoundingClientRect();
-      if (rect.width < 140 || rect.height < 90 || rect.right <= 0 || rect.bottom <= 0) return false;
-      if (rect.left >= this.view.innerWidth || rect.top >= this.view.innerHeight) return false;
-      const style = this.view.getComputedStyle(element);
-      return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || 1) !== 0;
-    }
-
-    syncResizeObservers(active) {
-      if (!this.resizeObserver) return;
-      this.observedMedia.forEach((element) => {
-        if (active.has(element)) return;
-        this.resizeObserver.unobserve(element);
-        this.observedMedia.delete(element);
-      });
-      active.forEach((element) => {
-        if (this.observedMedia.has(element)) return;
-        this.resizeObserver.observe(element);
-        this.observedMedia.add(element);
-      });
-    }
-
-    stop() {
-      this.view.removeEventListener("scroll", this.updateBound, { capture: true });
-      this.view.removeEventListener("resize", this.updateBound);
-      if (this.mutationObserver) this.mutationObserver.disconnect();
-      if (this.resizeObserver) this.resizeObserver.disconnect();
-      this.mutationObserver = null;
-      this.observedMedia.clear();
-      this.stamps.clear();
-      this.host?.remove();
-      this.host = null;
-      this.layer = null;
-      this.frame = 0;
-    }
-
-    destroy() {
-      this.enabled = false;
-      this.stop();
-    }
-  }
-
   class NsfwFilter {
     constructor(documentValue, classifyImage = null) {
       this.document = documentValue;
@@ -860,7 +655,6 @@
         typeof options.onMaskCountChange === "function" ? options.onMaskCountChange : () => undefined,
         options.redactionOptions
       );
-      this.mediaStamper = new MediaStamper(documentValue);
       this.nsfwFilter = new NsfwFilter(documentValue, options.classifyImage);
       this.titleProtector = new TitleProtector(documentValue, options.neutralTitle);
       this.installStyle();
@@ -916,17 +710,6 @@
         html.${CLASS_IMAGES_BLURRED} body embed[type^="image"] {
           filter: blur(var(${BLUR_PROPERTY}, 12px)) !important;
         }
-        html.${CLASS_IMAGES_STAMPED} body img,
-        html.${CLASS_IMAGES_STAMPED} body svg,
-        html.${CLASS_IMAGES_STAMPED} body canvas,
-        html.${CLASS_IMAGES_STAMPED} body video,
-        html.${CLASS_IMAGES_STAMPED} body iframe,
-        html.${CLASS_IMAGES_STAMPED} body input[type="image"],
-        html.${CLASS_IMAGES_STAMPED} body object[type^="image"],
-        html.${CLASS_IMAGES_STAMPED} body embed[type^="image"] {
-          filter: brightness(0) grayscale(1) !important;
-          background-color: #050403 !important;
-        }
         html.${CLASS_IMAGES_NSFW} body img:not([data-privacy-lens-nsfw-status="safe"]),
         html.${CLASS_IMAGES_NSFW} body svg,
         html.${CLASS_IMAGES_NSFW} body canvas,
@@ -938,9 +721,6 @@
           filter: brightness(0) grayscale(1) !important;
           background-color: #050403 !important;
         }
-        html.${CLASS_IMAGES_STAMPED},
-        html.${CLASS_IMAGES_STAMPED} body,
-        html.${CLASS_IMAGES_STAMPED} body *,
         html.${CLASS_IMAGES_NSFW},
         html.${CLASS_IMAGES_NSFW} body,
         html.${CLASS_IMAGES_NSFW} body * {
@@ -982,10 +762,6 @@
         this.state.imagesProtected && this.state.imageTreatment === "blur"
       );
       this.rootElement.classList.toggle(
-        CLASS_IMAGES_STAMPED,
-        this.state.imagesProtected && this.state.imageTreatment === "stamp"
-      );
-      this.rootElement.classList.toggle(
         CLASS_IMAGES_NSFW,
         this.state.imagesProtected && this.state.imageTreatment === "nsfw"
       );
@@ -1016,9 +792,6 @@
 
       this.masker.setTreatment(this.state.textTreatment);
       this.masker.setEnabled(this.state.sensitiveMasked);
-      this.mediaStamper.setEnabled(
-        this.state.imagesProtected && this.state.imageTreatment === "stamp"
-      );
       this.nsfwFilter.setEnabled(
         this.state.imagesProtected && this.state.imageTreatment === "nsfw"
       );
@@ -1048,7 +821,6 @@
     destroy() {
       this.reset(this.state);
       this.masker.disconnect();
-      this.mediaStamper.destroy();
       this.nsfwFilter.destroy();
       this.titleProtector.disconnect();
       this.styleElement?.remove();
@@ -1065,7 +837,6 @@
   }
 
   root.PrivacyLens.TextMasker = TextMasker;
-  root.PrivacyLens.MediaStamper = MediaStamper;
   root.PrivacyLens.NsfwFilter = NsfwFilter;
   root.PrivacyLens.TitleProtector = TitleProtector;
   root.PrivacyLens.PrivacyEngine = PrivacyEngine;
@@ -1074,7 +845,6 @@
     STYLE_ID,
     CLASS_IMAGES_HIDDEN,
     CLASS_IMAGES_BLURRED,
-    CLASS_IMAGES_STAMPED,
     CLASS_IMAGES_NSFW,
     CLASS_TEXT_REDACTED,
     CLASS_TEXT_BLURRED,

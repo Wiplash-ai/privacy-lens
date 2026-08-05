@@ -10,8 +10,7 @@ Privacy Lens is a framework-free Manifest V3 extension for Chrome, Edge,
 Firefox, and Opera. It gives each page four reversible privacy layers from one
 draggable widget:
 
-- Blur, hide, or black out images and video. Large blackouts receive a diagonal
-  Top Secret stamp; small media becomes a clean black redaction.
+- Blur or hide images and video, with one shared blur-strength control.
 - Blur the whole page with distinct soft-focus and frosted treatments.
 - Redact or blur emails, phone numbers, credentials, tokens, sensitive link
   labels, custom phrases, camel-case segments in category/user names, and
@@ -37,8 +36,7 @@ Privacy Lens does not ship an AI model or classifier service. The public,
 model-agnostic API contract is documented at
 [labs.wiplash.ai/privacy-lens/api-docs](https://labs.wiplash.ai/privacy-lens/api-docs/),
 and users may configure their own compatible endpoint. Video classification is
-outside v1; ordinary video still follows the local blur, hide, and stamp
-controls.
+outside v1; ordinary video still follows the local blur and hide controls.
 
 ## Permissions
 
@@ -74,7 +72,7 @@ archive per supported browser to `artifacts/packages/`. `npm run verify` runs
 unit, release-invariant, packaging, and real-browser integration checks.
 
 The browser integration uses a deterministic test fixture and classifier stub.
-It covers all four widget controls, four image treatments, both text
+It covers all four widget controls, three image treatments, both text
 treatments, linked-label redaction, dynamic DOM updates, custom phrases and
 regex rules, tab selection, all-tab title protection, restoration, and
 desktop/mobile bounds.
