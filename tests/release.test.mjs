@@ -42,10 +42,15 @@ test("runtime has no analytics, screenshots, remote scripts, or unscoped network
   assert.match(background, /referrerPolicy:\s*"no-referrer"/);
 });
 
-test("widget footer uses only the Wiplash producer link", async () => {
+test("widget footer links to Wiplash, Wiplash Labs, and public source", async () => {
   const source = await readFile(path.join(root, "content/content-script.js"), "utf8");
+  const options = await readFile(path.join(root, "options/options.html"), "utf8");
   assert.match(source, /Produced by Wiplash\.ai/);
+  assert.match(source, /https:\/\/labs\.wiplash\.ai\/privacy-lens\//);
+  assert.match(source, /https:\/\/github\.com\/Wiplash-ai\/privacy-lens/);
   assert.doesNotMatch(source, /ON-DEVICE DEFAULT|dataFlowLabel/);
+  assert.match(options, /https:\/\/labs\.wiplash\.ai\/privacy-lens\//);
+  assert.match(options, /https:\/\/github\.com\/Wiplash-ai\/privacy-lens/);
 });
 
 test("documentation explains permissions, local-first processing, restoration, regex, and opt-in images", async () => {

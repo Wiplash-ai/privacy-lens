@@ -100,6 +100,7 @@ main { position: relative; z-index: 1; width: min(1080px, calc(100% - 40px)); ma
 .privacy-strip strong { font-family: Georgia, "Times New Roman", serif; font-size: 26px; font-weight: 500; }
 .privacy-strip p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
 footer { min-height: 66px; padding: 0 max(22px, calc((100vw - 1080px) / 2)); display: flex; align-items: center; justify-content: space-between; color: var(--dim); border-top: 1px solid var(--line); font-size: 10px; }
+footer nav { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
 footer a { color: var(--muted); text-decoration: none; }
 footer a:hover { color: var(--text); }
 .toast { position: fixed; right: 24px; bottom: 24px; z-index: 20; max-width: min(360px, calc(100vw - 32px)); padding: 12px 16px; color: #07100a; border-radius: 7px; background: var(--acid); box-shadow: 0 14px 36px rgba(0,0,0,.38); font-size: 11px; font-weight: 800; opacity: 0; pointer-events: none; transform: translateY(10px); transition: opacity 130ms ease, transform 130ms ease; }
@@ -261,7 +262,8 @@ footer { font-size: 13px; }
   .tab-row { grid-template-columns: 30px minmax(0,1fr); }
   .tab-state { grid-column: 2; }
   .type-grid { grid-template-columns: 1fr; }
-  footer { align-items: flex-start; flex-direction: column; justify-content: center; gap: 5px; padding-block: 14px; }
+  footer { align-items: flex-start; flex-direction: column; justify-content: center; gap: 8px; padding-block: 14px; }
+  footer nav { flex-wrap: wrap; justify-content: flex-start; gap: 6px 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }

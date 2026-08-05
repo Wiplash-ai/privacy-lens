@@ -241,7 +241,14 @@
 
         <footer class="lens-footer">
           <button id="resetButton" type="button"><img src="${assetUrl("assets/ui/reset.svg")}" alt="">Restore page</button>
-          <a class="producer-link" href="https://wiplash.ai/" target="_blank" rel="noreferrer">Produced by Wiplash.ai</a>
+          <nav class="footer-links" aria-label="Privacy Lens links">
+            <a class="producer-link" href="https://wiplash.ai/" target="_blank" rel="noreferrer">Produced by Wiplash.ai</a>
+            <span class="footer-resource-links">
+              <a href="https://labs.wiplash.ai/privacy-lens/" target="_blank" rel="noreferrer">Wiplash Labs</a>
+              <i aria-hidden="true">·</i>
+              <a href="https://github.com/Wiplash-ai/privacy-lens" target="_blank" rel="noreferrer">Source code</a>
+            </span>
+          </nav>
         </footer>
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
       </section>
@@ -794,8 +801,11 @@
       .lens-footer button:hover { color: #07100a; border-color: var(--ink); background: var(--ink); }
       .lens-footer button img { width: 12px; height: 12px; filter: invert(80%); }
       .lens-footer button:hover img { filter: none; }
-      .producer-link { justify-self: end; color: #7e8b84; font-size: 9px; font-weight: 760; text-align: right; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
-      .producer-link:hover, .producer-link:focus-visible { color: var(--ink); outline: none; }
+      .footer-links { justify-self: end; display: grid; justify-items: end; gap: 2px; color: #7e8b84; font-size: 9px; font-weight: 760; line-height: 1.15; text-align: right; }
+      .footer-links a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+      .footer-links a:hover, .footer-links a:focus-visible { color: var(--ink); outline: none; }
+      .footer-resource-links { display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px; }
+      .footer-resource-links i { font-style: normal; opacity: .7; }
       .toast { position: absolute; right: 0; bottom: calc(100% + 8px); left: 0; z-index: 4; padding: 8px 10px; color: #07100a; border: 1px solid var(--acid); border-radius: 7px; background: var(--acid); box-shadow: 0 12px 28px rgba(0,0,0,.34); font-size: 9px; font-weight: 800; text-align: center; opacity: 0; pointer-events: none; transform: translateY(5px); transition: opacity 130ms ease, transform 130ms ease; }
       .toast.is-visible { opacity: 1; transform: translateY(0); }
       /* Manila dossier theme */
@@ -868,8 +878,8 @@
       .lens-footer button { color: #4c3821; border-color: #8e7049; border-radius: 2px; background: #e4cea4; }
       .lens-footer button:hover { color: #f8e8c8; border-color: #8e0c0c; background: #9d0f0f; }
       .lens-footer button img, .lens-footer button:hover img { filter: sepia(1) saturate(.8) brightness(.35); }
-      .producer-link { color: #725938; }
-      .producer-link:hover, .producer-link:focus-visible { color: #8f0d0d; }
+      .footer-links { color: #725938; }
+      .footer-links a:hover, .footer-links a:focus-visible { color: #8f0d0d; }
       .tab-picker { padding-bottom: 7px; }
       .tab-picker-toggle { width: 100%; min-height: 35px; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #302316; border: 0; background: transparent; text-align: left; cursor: pointer; }
       .tab-picker-toggle > span { min-width: 0; display: grid; gap: 2px; }
@@ -922,7 +932,7 @@
       .widget-tab-copy strong { font-size: 12px; }
       .widget-tab-copy small, .widget-tab-empty { font-size: 11px; }
       .lens-footer button { min-height: 36px; font-size: 13px; }
-      .producer-link { font-size: 10px; }
+      .footer-links { font-size: 10px; }
       .toast { font-size: 13px; }
       @media (max-width: 480px), (max-height: 840px) {
         .lens { max-height: calc(100vh - 28px); overflow-x: hidden; overflow-y: auto; }
