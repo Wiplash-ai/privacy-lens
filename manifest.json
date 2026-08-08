@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Privacy Lens - Safe Streaming",
   "short_name": "Privacy Lens",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Blur or hide media, redact secrets in text and forms, protect tab titles, and optionally screen images with your API.",
   "homepage_url": "https://labs.wiplash.ai/privacy-lens/",
   "icons": {
