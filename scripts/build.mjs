@@ -40,6 +40,19 @@ async function buildChromium(browser, shortName) {
 async function buildFirefox() {
   const target = path.join(dist, "firefox");
   await copyShared(target);
+  await cp(
+    path.join(root, "browser", "firefox-permissions.js"),
+    path.join(target, "options", "firefox-permissions.js")
+  );
+  const optionsPath = path.join(target, "options", "options.html");
+  const optionsHtml = await readFile(optionsPath, "utf8");
+  await writeFile(
+    optionsPath,
+    optionsHtml.replace(
+      '    <script src="options.js"></script>',
+      '    <script src="firefox-permissions.js"></script>\n    <script src="options.js"></script>'
+    )
+  );
   const manifest = structuredClone(baseManifest);
   delete manifest.background.service_worker;
   await writeManifest(target, manifest);
@@ -50,7 +63,7 @@ async function buildDevelopmentChrome() {
   const target = path.join(dist, "dev-chrome");
   await copyShared(target);
   const manifest = structuredClone(baseManifest);
-  manifest.name = "Privacy Lens Dev - Local Page Privacy";
+  manifest.name = "Privacy Lens Dev - Safe Streaming";
   manifest.short_name = "Privacy Lens Dev";
   delete manifest.browser_specific_settings;
   delete manifest.background.scripts;

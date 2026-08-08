@@ -6,6 +6,12 @@
 
 <p align="center">A local-first privacy layer for safer displays, recordings, screen shares, and public browsing.</p>
 
+<p align="center">
+  <a href="https://youtu.be/g2kbE6A6loA">Watch the Privacy Lens product demo</a>
+  &nbsp;·&nbsp;
+  <a href="https://labs.wiplash.ai/privacy-lens/">Open Privacy Lens on Wiplash Labs</a>
+</p>
+
 Privacy Lens is a framework-free Manifest V3 extension for Chrome, Edge,
 Firefox, and Opera. It gives each page four reversible privacy layers from one
 draggable widget:

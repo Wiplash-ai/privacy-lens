@@ -1,5 +1,9 @@
 # Privacy Lens store listing draft
 
+## Product demo
+
+https://youtu.be/g2kbE6A6loA
+
 ## Short description
 
 Blur or hide media; protect selected tab titles; redact chosen

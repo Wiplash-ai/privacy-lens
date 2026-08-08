@@ -272,17 +272,15 @@ function isFirefox() {
 }
 
 function requestBrowserPermission(value) {
-  return new Promise((resolve, reject) => {
-    chrome.permissions.request(value, (granted) => {
-      const error = chrome.runtime.lastError;
-      if (error) reject(new Error(error.message));
-      else resolve(granted === true);
-    });
-  });
+  const permissions = globalThis.PrivacyLens?.FirefoxPermissions;
+  if (!permissions) return Promise.reject(new Error("Firefox permission bridge is unavailable."));
+  return permissions.request(value);
 }
 
 function removeBrowserPermission(value) {
-  return new Promise((resolve) => chrome.permissions.remove(value, resolve));
+  const permissions = globalThis.PrivacyLens?.FirefoxPermissions;
+  if (!permissions) return Promise.reject(new Error("Firefox permission bridge is unavailable."));
+  return permissions.remove(value);
 }
 
 async function testNsfwApi() {

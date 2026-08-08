@@ -11,9 +11,11 @@ const execFileAsync = promisify(execFile);
 test("manifest is MV3 with only storage, tabs, and ordinary-page host access", async () => {
   const manifest = JSON.parse(await readFile(path.join(root, "manifest.json"), "utf8"));
   assert.equal(manifest.manifest_version, 3);
+  assert.equal(manifest.name, "Privacy Lens - Safe Streaming");
   assert.deepEqual(manifest.permissions.sort(), ["storage", "tabs"]);
   assert.deepEqual(manifest.host_permissions.sort(), ["http://*/*", "https://*/*"]);
   assert.equal(manifest.content_scripts[0].all_frames, true);
+  assert.ok(manifest.description.length <= 132, "Manifest description must fit Chromium store limits");
   assert.equal(manifest.browser_specific_settings.gecko.data_collection_permissions.required[0], "none");
   assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.optional, ["websiteContent"]);
 });
@@ -106,6 +108,13 @@ test("browser builds contain correct background formats and bundled icons", asyn
   assert.equal("service_worker" in firefox.background, false);
   assert.equal(firefox.browser_specific_settings.gecko.data_collection_permissions.required[0], "none");
   assert.deepEqual(firefox.browser_specific_settings.gecko.data_collection_permissions.optional, ["websiteContent"]);
+  const firefoxOptions = await readFile(path.join(root, "dist/firefox/options/options.html"), "utf8");
+  assert.match(firefoxOptions, /firefox-permissions\.js/);
+  assert.match(await readFile(path.join(root, "dist/firefox/options/firefox-permissions.js"), "utf8"), /chrome\.permissions/);
+
+  const operaOptions = await readFile(path.join(root, "dist/opera/options/options.js"), "utf8");
+  assert.doesNotMatch(operaOptions, /chrome\.permissions/);
+  await assert.rejects(access(path.join(root, "dist/opera/options/firefox-permissions.js")));
 
   const development = JSON.parse(await readFile(path.join(root, "dist/dev-chrome/manifest.json"), "utf8"));
   assert.match(development.name, /Dev/);
