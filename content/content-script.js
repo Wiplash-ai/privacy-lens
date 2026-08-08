@@ -51,12 +51,8 @@
     engine.applyState(state);
 
     if (IS_TOP_FRAME) {
-      buildWidget();
       chrome.storage.onChanged.addListener(handleStorageChange);
       window.addEventListener("resize", positionWidget, { passive: true });
-      window.setTimeout(() => {
-        callRuntime({ type: "PRIVACY_LENS_APPLY_TO_TAB", state }).catch(() => undefined);
-      }, 0);
     }
 
     return engine;
@@ -81,10 +77,12 @@
         return { ok: true, visible: false };
       case "PRIVACY_LENS_SET_WIDGET_EXPANDED":
         if (!IS_TOP_FRAME) return { ok: false, ignored: true };
+        ensureWidget();
         setWidgetExpanded(message.expanded === true);
         return { ok: true, expanded: widgetExpanded };
       case "PRIVACY_LENS_SET_TAB_PICKER_EXPANDED":
         if (!IS_TOP_FRAME) return { ok: false, ignored: true };
+        ensureWidget();
         setWidgetExpanded(true);
         await setTabPickerOpen(message.expanded === true);
         return {
@@ -250,6 +248,10 @@
     setWidgetExpanded(false);
     positionWidget();
     renderWidget();
+  }
+
+  function ensureWidget() {
+    if (!widgetHost) buildWidget();
   }
 
   function bindWidgetEvents() {
@@ -518,6 +520,7 @@
   }
 
   function showWidget() {
+    ensureWidget();
     widgetVisible = true;
     widgetHost.hidden = false;
     widgetHost.style.display = "block";

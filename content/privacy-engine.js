@@ -836,7 +836,7 @@
     installStyle() {
       const style = this.document.createElement("style");
       style.id = this.document.getElementById(STYLE_ID) ? `${STYLE_ID}-extension` : STYLE_ID;
-      style.dataset.privacyLensOwned = "true";
+      style.setAttribute("data-privacy-lens-owned", "true");
       style.textContent = `
         html.${CLASS_TEXT_REDACTED} ::highlight(${MASK_NAME}) {
           color: transparent;
