@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Privacy Lens - Safe Streaming",
+  "name": "Screen Share Privacy & Blur - Privacy Lens",
   "short_name": "Privacy Lens",
-  "version": "0.5.3",
-  "description": "Blur or hide media, redact secrets in text and forms, protect tab titles, and optionally screen images with your API.",
+  "version": "0.5.4",
+  "description": "Blur or hide media, redact sensitive text and form fields, protect tab titles, and restore pages after screen shares or recordings.",
   "homepage_url": "https://labs.wiplash.ai/privacy-lens/",
   "icons": {
     "16": "assets/icons/icon16.png",

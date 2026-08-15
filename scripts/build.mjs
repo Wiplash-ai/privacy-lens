@@ -63,7 +63,7 @@ async function buildDevelopmentChrome() {
   const target = path.join(dist, "dev-chrome");
   await copyShared(target);
   const manifest = structuredClone(baseManifest);
-  manifest.name = "Privacy Lens Dev - Safe Streaming";
+  manifest.name = "Privacy Lens Dev - Screen Share Blur";
   manifest.short_name = "Privacy Lens Dev";
   delete manifest.browser_specific_settings;
   delete manifest.background.scripts;

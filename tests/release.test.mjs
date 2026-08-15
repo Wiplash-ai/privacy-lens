@@ -11,7 +11,7 @@ const execFileAsync = promisify(execFile);
 test("manifest is MV3 with only storage, tabs, and ordinary-page host access", async () => {
   const manifest = JSON.parse(await readFile(path.join(root, "manifest.json"), "utf8"));
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.name, "Privacy Lens - Safe Streaming");
+  assert.equal(manifest.name, "Screen Share Privacy & Blur - Privacy Lens");
   assert.deepEqual(manifest.permissions.sort(), ["storage", "tabs"]);
   assert.deepEqual(manifest.host_permissions.sort(), ["http://*/*", "https://*/*"]);
   assert.equal(manifest.content_scripts[0].all_frames, true);
