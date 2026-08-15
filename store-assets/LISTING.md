@@ -6,8 +6,18 @@ https://youtu.be/g2kbE6A6loA
 
 ## Short description
 
-Blur or hide media; protect selected tab titles; redact chosen
-secrets locally; and optionally screen compressed images with your API.
+Blur or hide media, redact sensitive text and form fields, protect tab titles,
+and restore pages after screen shares or recordings.
+
+## Search terms
+
+- `screen share privacy`
+- `privacy blur`
+- `blur sensitive data`
+- `screen recording privacy`
+- `hide personal information`
+- `tab title privacy`
+- `redact secrets`
 
 ## Full description
 
